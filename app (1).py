@@ -25,7 +25,8 @@ st.caption("Your AI Career Copilot")
 
 if "career_profile" not in st.session_state:
     st.session_state.career_profile = {}
-    
+
+
 # =========================================================
 # CAREER READINESS SCORE
 # =========================================================
@@ -34,33 +35,57 @@ def calculate_readiness(profile):
 
     score = 0
 
-    # Skills
+    # -----------------------------------------------------
+    # SKILLS
+    # -----------------------------------------------------
+
     if len(profile["skills"]) >= 5:
         score += 25
+
     elif len(profile["skills"]) >= 3:
         score += 18
+
     elif len(profile["skills"]) >= 1:
         score += 10
 
-    # Projects
+
+    # -----------------------------------------------------
+    # PROJECTS
+    # -----------------------------------------------------
+
     if profile["projects"].strip():
         score += 20
 
-    # Experience
+
+    # -----------------------------------------------------
+    # EXPERIENCE
+    # -----------------------------------------------------
+
     if profile["experience"].strip():
         score += 20
 
-    # Education
+
+    # -----------------------------------------------------
+    # EDUCATION
+    # -----------------------------------------------------
+
     if profile["cgpa"] >= 8:
         score += 20
+
     elif profile["cgpa"] >= 7:
         score += 15
+
     elif profile["cgpa"] >= 6:
         score += 10
 
-    # Career goal
+
+    # -----------------------------------------------------
+    # CAREER GOAL
+    # -----------------------------------------------------
+
     if profile["target_role"] != "Other":
         score += 15
+
 
     return score
 
@@ -95,6 +120,10 @@ if page == "🏠 Dashboard":
 
     st.header("🏠 Career Dashboard")
 
+    # -----------------------------------------------------
+    # CHECK WHETHER PROFILE EXISTS
+    # -----------------------------------------------------
+
     if not st.session_state.career_profile:
 
         st.info(
@@ -105,22 +134,14 @@ if page == "🏠 Dashboard":
     else:
 
         profile = st.session_state.career_profile
+
+        # Calculate readiness score
         readiness_score = calculate_readiness(profile)
-        st.subheader("🎯 Career Readiness")
 
-st.metric(
-    "Readiness Score",
-    f"{readiness_score}/100"
-)
 
-if readiness_score >= 80:
-    st.success("🔥 You're looking strong for your target role!")
-
-elif readiness_score >= 60:
-    st.warning("🟡 You're on the right track, but there are areas to improve.")
-
-else:
-    st.error("🔴 You have some important gaps to work on.")
+        # -------------------------------------------------
+        # WELCOME
+        # -------------------------------------------------
 
         st.subheader(
             f"Welcome, {profile['name']} 👋"
@@ -130,7 +151,44 @@ else:
             "Here's a quick look at your CareerPilot profile."
         )
 
+
         st.divider()
+
+
+        # -------------------------------------------------
+        # CAREER READINESS
+        # -------------------------------------------------
+
+        st.subheader("🎯 Career Readiness")
+
+        st.metric(
+            "Readiness Score",
+            f"{readiness_score}/100"
+        )
+
+
+        if readiness_score >= 80:
+
+            st.success(
+                "🔥 You're looking strong for your target role!"
+            )
+
+        elif readiness_score >= 60:
+
+            st.warning(
+                "🟡 You're on the right track, "
+                "but there are areas to improve."
+            )
+
+        else:
+
+            st.error(
+                "🔴 You have some important gaps to work on."
+            )
+
+
+        st.divider()
+
 
         # -------------------------------------------------
         # EDUCATION METRICS
@@ -139,24 +197,29 @@ else:
         col1, col2, col3 = st.columns(3)
 
         with col1:
+
             st.metric(
                 "🎓 Degree",
                 profile["degree"]
             )
 
         with col2:
+
             st.metric(
                 "📚 Year",
                 profile["year"]
             )
 
         with col3:
+
             st.metric(
                 "📊 CGPA",
                 profile["cgpa"]
             )
 
+
         st.divider()
+
 
         # -------------------------------------------------
         # CAREER GOAL
@@ -167,17 +230,22 @@ else:
         col1, col2 = st.columns(2)
 
         with col1:
+
             st.write(
-                f"**Target Role:** {profile['target_role']}"
+                f"**Target Role:** "
+                f"{profile['target_role']}"
             )
 
         with col2:
+
             st.write(
                 f"**Preferred Location:** "
                 f"{profile['preferred_location']}"
             )
 
+
         st.divider()
+
 
         # -------------------------------------------------
         # SKILLS
@@ -197,7 +265,9 @@ else:
                 "No skills added yet."
             )
 
+
         st.divider()
+
 
         # -------------------------------------------------
         # PROJECTS
@@ -207,7 +277,9 @@ else:
 
         if profile["projects"]:
 
-            st.write(profile["projects"])
+            st.write(
+                profile["projects"]
+            )
 
         else:
 
@@ -215,7 +287,9 @@ else:
                 "No projects added yet."
             )
 
+
         st.divider()
+
 
         # -------------------------------------------------
         # EXPERIENCE
@@ -225,7 +299,9 @@ else:
 
         if profile["experience"]:
 
-            st.write(profile["experience"])
+            st.write(
+                profile["experience"]
+            )
 
         else:
 
@@ -246,6 +322,7 @@ elif page == "👤 Career Profile":
         "Tell CareerPilot about yourself so it can "
         "personalize your career recommendations."
     )
+
 
     # -----------------------------------------------------
     # BASIC INFORMATION
@@ -287,10 +364,12 @@ elif page == "👤 Career Profile":
             ]
         )
 
+
     branch = st.text_input(
         "Branch / Specialization",
         placeholder="e.g. Computer Science, Data Science"
     )
+
 
     cgpa = st.number_input(
         "CGPA",
@@ -298,6 +377,7 @@ elif page == "👤 Career Profile":
         max_value=10.0,
         step=0.01
     )
+
 
     # -----------------------------------------------------
     # SKILLS
@@ -327,6 +407,7 @@ elif page == "👤 Career Profile":
         ]
     )
 
+
     # -----------------------------------------------------
     # CAREER GOAL
     # -----------------------------------------------------
@@ -349,10 +430,12 @@ elif page == "👤 Career Profile":
         ]
     )
 
+
     preferred_location = st.text_input(
         "📍 Preferred Location",
         placeholder="e.g. Hyderabad, Bengaluru, Remote"
     )
+
 
     # -----------------------------------------------------
     # PROJECTS
@@ -369,6 +452,7 @@ elif page == "👤 Career Profile":
         height=120
     )
 
+
     # -----------------------------------------------------
     # EXPERIENCE
     # -----------------------------------------------------
@@ -383,6 +467,7 @@ elif page == "👤 Career Profile":
         ),
         height=100
     )
+
 
     # -----------------------------------------------------
     # SAVE PROFILE
