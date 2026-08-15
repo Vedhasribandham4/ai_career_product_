@@ -1,4 +1,8 @@
-import streamlit as st
+st.caption("Your AI Career Copilot")
+# Store career profile information
+if "career_profile" not in st.session_state:
+    st.session_state.career_profile = {}
+    import streamlit as st
 
 # Page Configuration
 st.set_page_config(
@@ -64,6 +68,16 @@ elif page == "👤 Career Profile":
         max_value=10.0,
         step=0.01
     )
+    if st.button("💾 Save Career Profile", type="primary"):
+    st.session_state.career_profile = {
+        "name": name,
+        "degree": degree,
+        "year": year,
+        "branch": branch,
+        "cgpa": cgpa
+    }
+
+    st.success("Career profile saved successfully! 🎉")
 
 elif page == "🔎 Opportunity Radar":
     st.header("🔎 Opportunity Radar")
