@@ -1,79 +1,12 @@
-import streamlit as st
 import os
 import json
-import io
 
+import streamlit as st
 from groq import Groq
 from pypdf import PdfReader
 from docx import Document
 
-# =========================================================
-# RESUME FILE EXTRACTION
-# =========================================================
 
-def extract_resume_text(uploaded_file):
-
-    if uploaded_file is None:
-        return ""
-
-    file_name = uploaded_file.name.lower()
-
-    # -----------------------------------------------------
-    # PDF
-    # -----------------------------------------------------
-
-    if file_name.endswith(".pdf"):
-
-        try:
-
-            pdf = PdfReader(uploaded_file)
-
-            text = ""
-
-            for page in pdf.pages:
-
-                page_text = page.extract_text()
-
-                if page_text:
-                    text += page_text + "\n"
-
-            return text.strip()
-
-        except Exception as e:
-
-            st.error(
-                f"Could not read PDF: {e}"
-            )
-
-            return ""
-
-    # -----------------------------------------------------
-    # DOCX
-    # -----------------------------------------------------
-
-    elif file_name.endswith(".docx"):
-
-        try:
-
-            document = Document(uploaded_file)
-
-            text = "\n".join(
-                paragraph.text
-                for paragraph in document.paragraphs
-                if paragraph.text.strip()
-            )
-
-            return text.strip()
-
-        except Exception as e:
-
-            st.error(
-                f"Could not read DOCX: {e}"
-            )
-
-            return ""
-
-    return ""
 # =========================================================
 # PAGE CONFIGURATION
 # =========================================================
@@ -119,16 +52,10 @@ if not api_key:
     except Exception:
         api_key = None
 
-if not api_key:
-    st.warning(
-        "⚠️ Groq API key not found. "
-        "AI features will not work until you add GROQ_API_KEY."
-    )
-
-    client = None
-
-else:
+if api_key:
     client = Groq(api_key=api_key)
+else:
+    client = None
 
 
 # =========================================================
@@ -214,7 +141,7 @@ ROLE_SKILLS = {
 
 
 # =========================================================
-# SAMPLE OPPORTUNITIES
+# DEMO OPPORTUNITIES
 # =========================================================
 
 OPPORTUNITIES = [
@@ -310,12 +237,86 @@ OPPORTUNITIES = [
 
 
 # =========================================================
+# RESUME FILE EXTRACTION
+# =========================================================
+
+def extract_resume_text(uploaded_file):
+
+    if uploaded_file is None:
+        return ""
+
+    file_name = uploaded_file.name.lower()
+
+    # -----------------------------
+    # PDF
+    # -----------------------------
+
+    if file_name.endswith(".pdf"):
+
+        try:
+            pdf = PdfReader(uploaded_file)
+
+            pages_text = []
+
+            for page in pdf.pages:
+
+                page_text = page.extract_text()
+
+                if page_text:
+                    pages_text.append(page_text)
+
+            return "\n".join(pages_text).strip()
+
+        except Exception as e:
+
+            st.error(
+                f"Could not read PDF: {e}"
+            )
+
+            return ""
+
+    # -----------------------------
+    # DOCX
+    # -----------------------------
+
+    if file_name.endswith(".docx"):
+
+        try:
+
+            document = Document(uploaded_file)
+
+            paragraphs = []
+
+            for paragraph in document.paragraphs:
+
+                text = paragraph.text.strip()
+
+                if text:
+                    paragraphs.append(text)
+
+            return "\n".join(paragraphs).strip()
+
+        except Exception as e:
+
+            st.error(
+                f"Could not read DOCX: {e}"
+            )
+
+            return ""
+
+    return ""
+
+
+# =========================================================
 # SKILL GAP ANALYZER
 # =========================================================
 
 def analyze_skill_gap(profile):
 
-    target_role = profile.get("target_role", "Other")
+    target_role = profile.get(
+        "target_role",
+        "Other"
+    )
 
     required_skills = ROLE_SKILLS.get(
         target_role,
@@ -354,7 +355,10 @@ def calculate_opportunity_match(
     )
 
     required_skills = set(
-        opportunity["required_skills"]
+        opportunity.get(
+            "required_skills",
+            []
+        )
     )
 
     matched_skills = user_skills.intersection(
@@ -379,8 +383,8 @@ def calculate_opportunity_match(
 
     return (
         match_percentage,
-        list(matched_skills),
-        list(missing_skills)
+        sorted(matched_skills),
+        sorted(missing_skills)
     )
 
 
@@ -392,11 +396,7 @@ def calculate_readiness(profile):
 
     score = 0
 
-    # -----------------------------------------------------
-    # SKILLS
-    # -----------------------------------------------------
-
-    matched_skills, missing_skills = analyze_skill_gap(
+    matched_skills, _ = analyze_skill_gap(
         profile
     )
 
@@ -404,6 +404,10 @@ def calculate_readiness(profile):
         profile.get("target_role", "Other"),
         []
     )
+
+    # -----------------------------
+    # Skills - 40 points
+    # -----------------------------
 
     if required_skills:
 
@@ -427,25 +431,36 @@ def calculate_readiness(profile):
         elif skill_count >= 1:
             score += 20
 
-    # -----------------------------------------------------
-    # PROJECTS
-    # -----------------------------------------------------
+    # -----------------------------
+    # Projects - 20 points
+    # -----------------------------
 
-    if profile.get("projects", "").strip():
+    if profile.get(
+        "projects",
+        ""
+    ).strip():
+
         score += 20
 
-    # -----------------------------------------------------
-    # EXPERIENCE
-    # -----------------------------------------------------
+    # -----------------------------
+    # Experience - 20 points
+    # -----------------------------
 
-    if profile.get("experience", "").strip():
+    if profile.get(
+        "experience",
+        ""
+    ).strip():
+
         score += 20
 
-    # -----------------------------------------------------
-    # CGPA
-    # -----------------------------------------------------
+    # -----------------------------
+    # CGPA - 20 points
+    # -----------------------------
 
-    cgpa = profile.get("cgpa", 0)
+    cgpa = profile.get(
+        "cgpa",
+        0
+    )
 
     if cgpa >= 8:
         score += 20
@@ -456,7 +471,63 @@ def calculate_readiness(profile):
     elif cgpa >= 6:
         score += 10
 
-    return min(round(score), 100)
+    return min(
+        round(score),
+        100
+    )
+
+
+# =========================================================
+# GENERIC GROQ REQUEST
+# =========================================================
+
+def ask_groq(
+    prompt,
+    temperature=0.3,
+    json_mode=False
+):
+
+    if client is None:
+
+        return None
+
+    try:
+
+        request = {
+
+            "model": "llama-3.3-70b-versatile",
+
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+
+            "temperature": temperature
+        }
+
+        if json_mode:
+
+            request["response_format"] = {
+                "type": "json_object"
+            }
+
+        response = client.chat.completions.create(
+            **request
+        )
+
+        return response.choices[
+            0
+        ].message.content
+
+    except Exception as e:
+
+        st.error(
+            f"AI request failed: {e}"
+        )
+
+        return None
 
 
 # =========================================================
@@ -470,22 +541,16 @@ def generate_opportunity_analysis(
     missing_skills
 ):
 
-    if client is None:
-        return (
-            "Groq API is not configured. "
-            "Please add your GROQ_API_KEY."
-        )
-
     prompt = f"""
 You are CareerPilot AI, an AI career advisor.
 
-Help a college student decide whether they should apply
-for an internship.
+Help a college student decide whether they should
+apply for an internship.
 
 STUDENT PROFILE
 
 Target Role:
-{profile.get("target_role")}
+{profile.get("target_role", "Not provided")}
 
 Skills:
 {", ".join(profile.get("skills", []))}
@@ -521,43 +586,45 @@ Missing Skills:
 Return exactly these sections:
 
 ### WHY APPLY
-Explain why this student is reasonably suited
-for the opportunity.
+
+Explain why the student is reasonably suited.
 
 ### SKILL GAP
+
 Explain the most important missing skills.
 
 ### ACTION PLAN
+
 Give 3 practical steps the student can take
 before or while applying.
 
 ### FINAL ADVICE
-Clearly say whether the student should:
-APPLY NOW,
-APPLY AFTER PREPARATION,
-or
-BUILD MORE SKILLS FIRST.
 
-Important:
-Never invent skills, achievements, experience,
-certifications or projects.
+Clearly choose ONE:
+
+APPLY NOW
+
+APPLY AFTER PREPARATION
+
+BUILD MORE SKILLS FIRST
+
+Never invent skills, achievements,
+experience, certifications or projects.
 """
 
-    response = client.chat.completions.create(
-
-        model="llama-3.3-70b-versatile",
-
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-
+    result = ask_groq(
+        prompt,
         temperature=0.3
     )
 
-    return response.choices[0].message.content
+    if result is None:
+
+        return (
+            "Unable to generate AI analysis. "
+            "Please check your Groq API configuration."
+        )
+
+    return result
 
 
 # =========================================================
@@ -569,12 +636,6 @@ def generate_outreach(
     job_description,
     output_type
 ):
-
-    if client is None:
-        return (
-            "Groq API is not configured. "
-            "Please add your GROQ_API_KEY."
-        )
 
     prompts = {
 
@@ -594,12 +655,12 @@ JOB DESCRIPTION:
 """,
 
         "LinkedIn DM": f"""
-Write a LinkedIn message to a recruiter.
+Write a professional LinkedIn message
+to a recruiter.
 
 Maximum 75 words.
 
 Use only facts from the resume.
-Be professional and confident.
 
 RESUME:
 {resume}
@@ -609,9 +670,11 @@ JOB DESCRIPTION:
 """,
 
         "Cold Email": f"""
-Write a professional cold email to a hiring manager.
+Write a professional cold email
+to a hiring manager.
 
 Include:
+
 - Subject line
 - Short introduction
 - Relevant skills
@@ -630,10 +693,11 @@ JOB DESCRIPTION:
 Write a professional cover letter.
 
 Structure:
+
 - Greeting
 - Opening
-- Relevant experience/skills
-- Why candidate fits
+- Relevant skills or experience
+- Why the candidate fits
 - Closing
 
 Only use facts from the resume.
@@ -646,21 +710,17 @@ JOB DESCRIPTION:
 """
     }
 
-    response = client.chat.completions.create(
-
-        model="llama-3.3-70b-versatile",
-
-        messages=[
-            {
-                "role": "user",
-                "content": prompts[output_type]
-            }
-        ],
-
-        temperature=0.3
+    prompt = prompts.get(
+        output_type
     )
 
-    return response.choices[0].message.content
+    if not prompt:
+        return None
+
+    return ask_groq(
+        prompt,
+        temperature=0.3
+    )
 
 
 # =========================================================
@@ -668,6 +728,12 @@ JOB DESCRIPTION:
 # =========================================================
 
 st.sidebar.title("🤖 CareerPilot AI")
+
+if client is None:
+
+    st.sidebar.warning(
+        "⚠️ Groq API not configured"
+    )
 
 page = st.sidebar.radio(
     "Navigate",
@@ -722,9 +788,9 @@ if page == "🏠 Dashboard":
 
     st.divider()
 
-    # -----------------------------------------------------
-    # READINESS
-    # -----------------------------------------------------
+    # -----------------------------
+    # Readiness
+    # -----------------------------
 
     st.subheader("🎯 Career Readiness")
 
@@ -735,6 +801,10 @@ if page == "🏠 Dashboard":
         st.metric(
             "Readiness Score",
             f"{readiness_score}/100"
+        )
+
+        st.progress(
+            readiness_score / 100
         )
 
     with col2:
@@ -759,9 +829,9 @@ if page == "🏠 Dashboard":
 
     st.divider()
 
-    # -----------------------------------------------------
-    # EDUCATION
-    # -----------------------------------------------------
+    # -----------------------------
+    # Education
+    # -----------------------------
 
     st.subheader("🎓 Education")
 
@@ -787,9 +857,9 @@ if page == "🏠 Dashboard":
 
     st.divider()
 
-    # -----------------------------------------------------
-    # CAREER
-    # -----------------------------------------------------
+    # -----------------------------
+    # Career
+    # -----------------------------
 
     st.subheader("🎯 Career Goal")
 
@@ -811,9 +881,9 @@ if page == "🏠 Dashboard":
 
     st.divider()
 
-    # -----------------------------------------------------
-    # SKILLS
-    # -----------------------------------------------------
+    # -----------------------------
+    # Skills
+    # -----------------------------
 
     st.subheader("💻 Skill Summary")
 
@@ -829,7 +899,10 @@ if page == "🏠 Dashboard":
                 st.write(f"✓ {skill}")
 
         else:
-            st.write("No matching skills yet.")
+
+            st.write(
+                "No matching skills yet."
+            )
 
     with col2:
 
@@ -841,7 +914,10 @@ if page == "🏠 Dashboard":
                 st.write(f"✗ {skill}")
 
         else:
-            st.write("No major skill gaps 🎉")
+
+            st.write(
+                "No major skill gaps 🎉"
+            )
 
     st.divider()
 
@@ -876,108 +952,183 @@ elif page == "👤 Career Profile":
 
     st.write(
         "Tell CareerPilot about yourself so it can "
-        "personalize your career recommendations."
+        "personalize your recommendations."
     )
 
     st.subheader("👤 Basic Information")
 
+    existing = st.session_state.career_profile
+
     name = st.text_input(
-        "Your Name"
+        "Your Name",
+        value=existing.get("name", "")
     )
 
     col1, col2 = st.columns(2)
 
     with col1:
 
+        degree_options = [
+            "B.Tech",
+            "B.E.",
+            "B.Sc",
+            "BCA",
+            "MCA",
+            "M.Tech",
+            "Other"
+        ]
+
+        current_degree = existing.get(
+            "degree",
+            "B.Tech"
+        )
+
+        degree_index = (
+            degree_options.index(current_degree)
+            if current_degree in degree_options
+            else 0
+        )
+
         degree = st.selectbox(
             "Degree",
-            [
-                "B.Tech",
-                "B.E.",
-                "B.Sc",
-                "BCA",
-                "MCA",
-                "M.Tech",
-                "Other"
-            ]
+            degree_options,
+            index=degree_index
         )
 
     with col2:
 
+        year_options = [
+            "1st Year",
+            "2nd Year",
+            "3rd Year",
+            "4th Year",
+            "Graduate"
+        ]
+
+        current_year = existing.get(
+            "year",
+            "1st Year"
+        )
+
+        year_index = (
+            year_options.index(current_year)
+            if current_year in year_options
+            else 0
+        )
+
         year = st.selectbox(
             "Current Year",
-            [
-                "1st Year",
-                "2nd Year",
-                "3rd Year",
-                "4th Year",
-                "Graduate"
-            ]
+            year_options,
+            index=year_index
         )
 
     branch = st.text_input(
         "Branch / Specialization",
-        placeholder="e.g. Computer Science, Data Science"
+        value=existing.get("branch", ""),
+        placeholder=(
+            "e.g. Computer Science, Data Science"
+        )
     )
 
     cgpa = st.number_input(
         "CGPA",
         min_value=0.0,
         max_value=10.0,
+        value=float(
+            existing.get("cgpa", 0.0)
+        ),
         step=0.01
     )
 
     st.subheader("💻 Skills")
 
+    skill_options = [
+        "Python",
+        "Java",
+        "C",
+        "C++",
+        "SQL",
+        "Pandas",
+        "NumPy",
+        "Machine Learning",
+        "Data Analysis",
+        "Data Visualization",
+        "HTML/CSS",
+        "JavaScript",
+        "React",
+        "Git/GitHub",
+        "Cloud Computing",
+        "Cybersecurity"
+    ]
+
+    existing_skills = existing.get(
+        "skills",
+        []
+    )
+
+    valid_existing_skills = [
+        skill
+        for skill in existing_skills
+        if skill in skill_options
+    ]
+
     skills = st.multiselect(
         "Select your skills",
-        [
-            "Python",
-            "Java",
-            "C",
-            "C++",
-            "SQL",
-            "Pandas",
-            "NumPy",
-            "Machine Learning",
-            "Data Analysis",
-            "Data Visualization",
-            "HTML/CSS",
-            "JavaScript",
-            "React",
-            "Git/GitHub",
-            "Cloud Computing",
-            "Cybersecurity"
-        ]
+        skill_options,
+        default=valid_existing_skills
     )
 
     st.subheader("🎯 Career Goal")
 
+    role_options = [
+        "Software Engineer",
+        "Data Analyst",
+        "Data Scientist",
+        "Machine Learning Engineer",
+        "AI Engineer",
+        "Python Developer",
+        "Web Developer",
+        "Cloud Engineer",
+        "Cybersecurity Analyst",
+        "Other"
+    ]
+
+    current_role = existing.get(
+        "target_role",
+        "Software Engineer"
+    )
+
+    role_index = (
+        role_options.index(current_role)
+        if current_role in role_options
+        else 0
+    )
+
     target_role = st.selectbox(
         "Target Career Role",
-        [
-            "Software Engineer",
-            "Data Analyst",
-            "Data Scientist",
-            "Machine Learning Engineer",
-            "AI Engineer",
-            "Python Developer",
-            "Web Developer",
-            "Cloud Engineer",
-            "Cybersecurity Analyst",
-            "Other"
-        ]
+        role_options,
+        index=role_index
     )
 
     preferred_location = st.text_input(
         "📍 Preferred Location",
-        placeholder="e.g. Hyderabad, Bengaluru, Remote"
+        value=existing.get(
+            "preferred_location",
+            ""
+        ),
+        placeholder=(
+            "e.g. Hyderabad, Bengaluru, Remote"
+        )
     )
 
     st.subheader("🚀 Projects")
 
     projects = st.text_area(
         "Tell us about your projects",
+        value=existing.get(
+            "projects",
+            ""
+        ),
         placeholder=(
             "Example: AI Resume Analyzer using "
             "Python, Streamlit and Groq API"
@@ -989,6 +1140,10 @@ elif page == "👤 Career Profile":
 
     experience = st.text_area(
         "Tell us about your experience",
+        value=existing.get(
+            "experience",
+            ""
+        ),
         placeholder=(
             "Mention internships, freelance work "
             "or relevant experience."
@@ -1030,9 +1185,8 @@ elif page == "🔎 Opportunity Radar":
 
     st.header("🔎 Opportunity Radar")
 
-    st.write(
-        "🎯 Discover opportunities matched to "
-        "your skills and career goal."
+    st.caption(
+        "Demo opportunities for testing your CareerPilot matching system."
     )
 
     if not st.session_state.career_profile:
@@ -1087,11 +1241,13 @@ elif page == "🔎 Opportunity Radar":
         ):
             continue
 
-        match_percentage, matched_skills, missing_skills = (
-            calculate_opportunity_match(
-                profile,
-                opportunity
-            )
+        (
+            match_percentage,
+            matched_skills,
+            missing_skills
+        ) = calculate_opportunity_match(
+            profile,
+            opportunity
         )
 
         opportunities.append(
@@ -1104,11 +1260,19 @@ elif page == "🔎 Opportunity Radar":
         )
 
     opportunities.sort(
-        key=lambda x: x[0],
+        key=lambda item: item[0],
         reverse=True
     )
 
-    st.subheader("🔥 Recommended Opportunities")
+    st.subheader(
+        "🔥 Recommended Opportunities"
+    )
+
+    if not opportunities:
+
+        st.info(
+            "No opportunities match your filters."
+        )
 
     for (
         match_percentage,
@@ -1159,6 +1323,7 @@ elif page == "🔎 Opportunity Radar":
                 st.write(
                     "🔴 **Missing:** "
                     + ", ".join(missing_skills)
+
                 )
 
             else:
@@ -1189,7 +1354,9 @@ elif page == "🔎 Opportunity Radar":
                     "### 🤖 CareerPilot Analysis"
                 )
 
-                st.markdown(analysis)
+                st.markdown(
+                    analysis
+                )
 
             col1, col2 = st.columns(2)
 
@@ -1213,9 +1380,15 @@ elif page == "🔎 Opportunity Radar":
                             application
                         )
 
-                    st.success(
-                        "Added to Application Tracker! 🎉"
-                    )
+                        st.success(
+                            "Added to Application Tracker! 🎉"
+                        )
+
+                    else:
+
+                        st.info(
+                            "Already in your applications."
+                        )
 
             with col2:
 
@@ -1231,9 +1404,11 @@ elif page == "🔎 Opportunity Radar":
                         "status": "Applied"
                     }
 
-                    st.session_state.applications.append(
-                        application
-                    )
+                    if application not in st.session_state.applications:
+
+                        st.session_state.applications.append(
+                            application
+                        )
 
                     st.success(
                         "Application recorded! 🚀"
@@ -1244,24 +1419,20 @@ elif page == "🔎 Opportunity Radar":
 # RESUME & OUTREACH
 # =========================================================
 
-# =========================================================
-# RESUME & OUTREACH
-# =========================================================
-
 elif page == "📄 Resume & Outreach":
 
     st.header("📄 Resume & Outreach")
 
     st.write(
-        "Upload your resume and let CareerPilot AI "
-        "create personalized career content."
+        "Upload your resume and create "
+        "AI-powered career content."
     )
 
     st.divider()
 
-    # =====================================================
-    # RESUME UPLOAD
-    # =====================================================
+    # -----------------------------
+    # Upload
+    # -----------------------------
 
     st.subheader("📎 Upload Resume")
 
@@ -1270,10 +1441,6 @@ elif page == "📄 Resume & Outreach":
         type=["pdf", "docx"],
         help="Upload a PDF or DOCX resume."
     )
-
-    # -----------------------------------------------------
-    # EXTRACT RESUME
-    # -----------------------------------------------------
 
     if uploaded_resume:
 
@@ -1306,9 +1473,9 @@ elif page == "📄 Resume & Outreach":
                     "Could not extract text from this file."
                 )
 
-    # =====================================================
-    # RESUME PREVIEW
-    # =====================================================
+    # -----------------------------
+    # Resume preview
+    # -----------------------------
 
     if st.session_state.resume_text:
 
@@ -1337,9 +1504,9 @@ elif page == "📄 Resume & Outreach":
 
     st.divider()
 
-    # =====================================================
-    # JOB DESCRIPTION
-    # =====================================================
+    # -----------------------------
+    # Job description
+    # -----------------------------
 
     st.subheader("💼 Target Opportunity")
 
@@ -1352,9 +1519,9 @@ elif page == "📄 Resume & Outreach":
         )
     )
 
-    # =====================================================
-    # OUTPUT TYPE
-    # =====================================================
+    # -----------------------------
+    # Output type
+    # -----------------------------
 
     output_type = st.selectbox(
         "✨ What should CareerPilot generate?",
@@ -1368,9 +1535,9 @@ elif page == "📄 Resume & Outreach":
 
     st.divider()
 
-    # =====================================================
-    # GENERATE
-    # =====================================================
+    # -----------------------------
+    # Generate
+    # -----------------------------
 
     if st.button(
         "🚀 Generate Tailored Content",
@@ -1378,10 +1545,6 @@ elif page == "📄 Resume & Outreach":
     ):
 
         resume = st.session_state.resume_text
-
-        # -------------------------------------------------
-        # VALIDATION
-        # -------------------------------------------------
 
         if not resume:
 
@@ -1413,35 +1576,36 @@ elif page == "📄 Resume & Outreach":
                     output_type
                 )
 
-            st.success(
-                "✨ Generated successfully!"
-            )
+            if result:
 
-            # -------------------------------------------------
-            # RESULT
-            # -------------------------------------------------
+                st.success(
+                    "✨ Generated successfully!"
+                )
 
-            st.subheader(
-                f"🤖 Generated {output_type}"
-            )
+                st.subheader(
+                    f"🤖 Generated {output_type}"
+                )
 
-            st.markdown(result)
+                st.markdown(
+                    result
+                )
 
-            # -------------------------------------------------
-            # COPY / SAVE AREA
-            # -------------------------------------------------
+                st.divider()
 
-            st.divider()
+                st.download_button(
+                    label="📥 Download Content",
+                    data=result,
+                    file_name=(
+                        "careerpilot_"
+                        + output_type.lower().replace(
+                            " ",
+                            "_"
+                        )
+                        + ".txt"
+                    ),
+                    mime="text/plain"
+                )
 
-            st.download_button(
-                label="📥 Download Content",
-                data=result,
-                file_name=(
-                    f"careerpilot_"
-                    f"{output_type.lower().replace(' ', '_')}.txt"
-                ),
-                mime="text/plain"
-            )
 
 # =========================================================
 # SKILL GAP ANALYZER
@@ -1466,12 +1630,12 @@ elif page == "🧠 Skill Gap Analyzer":
     )
 
     required_skills = ROLE_SKILLS.get(
-        profile["target_role"],
+        profile.get("target_role"),
         []
     )
 
     st.subheader(
-        f"🎯 Target Role: {profile['target_role']}"
+        f"🎯 Target Role: {profile.get('target_role')}"
     )
 
     if required_skills:
@@ -1487,17 +1651,24 @@ elif page == "🧠 Skill Gap Analyzer":
             f"{percentage}%"
         )
 
+        st.progress(
+            percentage / 100
+        )
+
     st.divider()
 
     col1, col2 = st.columns(2)
 
     with col1:
 
-        st.subheader("🟢 Skills You Have")
+        st.subheader(
+            "🟢 Skills You Have"
+        )
 
         if matched_skills:
 
             for skill in matched_skills:
+
                 st.success(
                     f"✓ {skill}"
                 )
@@ -1510,11 +1681,14 @@ elif page == "🧠 Skill Gap Analyzer":
 
     with col2:
 
-        st.subheader("🔴 Skills To Learn")
+        st.subheader(
+            "🔴 Skills To Learn"
+        )
 
         if missing_skills:
 
             for skill in missing_skills:
+
                 st.error(
                     f"✗ {skill}"
                 )
@@ -1540,50 +1714,59 @@ elif page == "🗺️ Career Roadmap":
             "Complete your Career Profile first."
         )
 
-    else:
+        st.stop()
 
-        profile = st.session_state.career_profile
+    profile = st.session_state.career_profile
 
-        st.subheader(
-            f"🚀 Roadmap to {profile['target_role']}"
-        )
+    st.subheader(
+        f"🚀 Roadmap to {profile.get('target_role')}"
+    )
 
-        matched, missing = analyze_skill_gap(
-            profile
-        )
+    _, missing = analyze_skill_gap(
+        profile
+    )
 
-        st.write("### Step 1 — Build Core Skills")
+    st.write(
+        "### Step 1 — Build Core Skills"
+    )
 
-        if missing:
+    if missing:
 
-            for skill in missing:
-                st.write(
-                    f"📚 Learn **{skill}**"
-                )
+        for skill in missing:
 
-        else:
-
-            st.success(
-                "Core skills are already covered!"
+            st.write(
+                f"📚 Learn **{skill}**"
             )
 
-        st.write("### Step 2 — Build Projects")
+    else:
 
-        st.write(
-            "🚀 Build 2–3 projects related to your target role."
+        st.success(
+            "Core skills are already covered!"
         )
 
-        st.write("### Step 3 — Apply")
+    st.write(
+        "### Step 2 — Build Projects"
+    )
 
-        st.write(
-            "🎯 Start applying to internships and entry-level roles."
-        )
+    st.write(
+        "🚀 Build 2–3 projects related to your target role."
+    )
 
-        st.write("### Step 4 — Interview Preparation")
+    st.write(
+        "### Step 3 — Apply"
+    )
 
-        st.write(
-            "🎤 Practice technical and behavioral interviews."
-        )
+    st.write(
+        "🎯 Start applying to internships and entry-level roles."
+    )
+
+    st.write(
+        "### Step 4 — Interview Preparation"
+    )
+
+    st.write(
+        "🎤 Practice technical and behavioral interviews."
+    )
 
 
 # =========================================================
@@ -1609,6 +1792,15 @@ elif page == "📋 Application Tracker":
             f"📊 Total Applications: {len(applications)}"
         )
 
+        status_options = [
+            "Saved",
+            "Applied",
+            "Assessment",
+            "Interview",
+            "Offer",
+            "Rejected"
+        ]
+
         for index, application in enumerate(
             applications
         ):
@@ -1627,25 +1819,19 @@ elif page == "📋 Application Tracker":
                     f"📍 {application['location']}"
                 )
 
+                current_status = application.get(
+                    "status",
+                    "Saved"
+                )
+
+                if current_status not in status_options:
+                    current_status = "Saved"
+
                 status = st.selectbox(
                     "Status",
-                    [
-                        "Saved",
-                        "Applied",
-                        "Assessment",
-                        "Interview",
-                        "Offer",
-                        "Rejected"
-                    ],
-                    index=[
-                        "Saved",
-                        "Applied",
-                        "Assessment",
-                        "Interview",
-                        "Offer",
-                        "Rejected"
-                    ].index(
-                        application["status"]
+                    status_options,
+                    index=status_options.index(
+                        current_status
                     ),
                     key=f"status_{index}"
                 )
@@ -1673,12 +1859,17 @@ elif page == "🎤 Interview Coach":
 
     interview_role = st.text_input(
         "Interview Role",
-        value=profile["target_role"]
+        value=profile.get(
+            "target_role",
+            ""
+        )
     )
 
     interview_question = st.text_area(
         "Paste an interview question",
-        placeholder="Example: Tell me about yourself."
+        placeholder=(
+            "Example: Tell me about yourself."
+        )
     )
 
     if st.button(
@@ -1692,7 +1883,7 @@ elif page == "🎤 Interview Coach":
                 "Groq API is not configured."
             )
 
-        elif not interview_question:
+        elif not interview_question.strip():
 
             st.warning(
                 "Enter an interview question."
@@ -1704,16 +1895,16 @@ elif page == "🎤 Interview Coach":
 You are an expert interview coach.
 
 Student target role:
-{profile["target_role"]}
+{profile.get("target_role", "")}
 
 Student skills:
-{", ".join(profile["skills"])}
+{", ".join(profile.get("skills", []))}
 
 Student projects:
-{profile["projects"]}
+{profile.get("projects", "None")}
 
 Student experience:
-{profile["experience"]}
+{profile.get("experience", "None")}
 
 Interview role:
 {interview_role}
@@ -1724,34 +1915,29 @@ Question:
 Create a strong but truthful answer.
 
 Do not invent achievements or experience.
-Make the answer sound natural for a college student.
+
+Make the answer sound natural
+for a college student.
 """
 
             with st.spinner(
                 "Preparing your answer..."
             ):
 
-                response = client.chat.completions.create(
-
-                    model="llama-3.3-70b-versatile",
-
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-
+                result = ask_groq(
+                    prompt,
                     temperature=0.4
                 )
 
-            st.markdown(
-                "### 💬 Suggested Answer"
-            )
+            if result:
 
-            st.write(
-                response.choices[0].message.content
-            )
+                st.markdown(
+                    "### 💬 Suggested Answer"
+                )
+
+                st.write(
+                    result
+                )
 
 
 # =========================================================
@@ -1761,6 +1947,11 @@ Make the answer sound natural for a college student.
 elif page == "💡 Product Builder":
 
     st.header("💡 AI Product Builder")
+
+    st.write(
+        "Turn a project idea into a realistic "
+        "24-hour hackathon MVP."
+    )
 
     raw_idea = st.text_input(
         "Enter your project idea",
@@ -1795,7 +1986,7 @@ elif page == "💡 Product Builder":
         type="primary"
     ):
 
-        if not raw_idea:
+        if not raw_idea.strip():
 
             st.warning(
                 "Enter a project idea first."
@@ -1812,7 +2003,7 @@ elif page == "💡 Product Builder":
             prompt = f"""
 You are a Senior Technical Product Manager.
 
-Create a 24-hour hackathon MVP.
+Create a realistic 24-hour hackathon MVP.
 
 PROJECT IDEA:
 {raw_idea}
@@ -1820,64 +2011,96 @@ PROJECT IDEA:
 AVAILABLE TECHNOLOGIES:
 {", ".join(tools_available)}
 
-Return JSON with:
+Return valid JSON with exactly these fields:
 
-project_title
-problem_statement
-mvp_features
-tech_stack_mapping
+{{
+    "project_title": "string",
+    "problem_statement": "string",
+    "mvp_features": [
+        "feature 1",
+        "feature 2",
+        "feature 3"
+    ],
+    "tech_stack_mapping": "string"
+}}
+
+Keep the scope realistic for a student hackathon.
 """
 
             with st.spinner(
                 "Building your MVP plan..."
             ):
 
-                response = client.chat.completions.create(
-
-                    model="llama-3.3-70b-versatile",
-
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-
-                    response_format={
-                        "type": "json_object"
-                    },
-
-                    temperature=0.4
+                result = ask_groq(
+                    prompt,
+                    temperature=0.4,
+                    json_mode=True
                 )
 
-            data = json.loads(
-                response.choices[0].message.content
-            )
+            if result:
 
-            st.subheader(
-                f"📌 {data.get('project_title')}"
-            )
+                try:
 
-            st.write(
-                "**Problem:**",
-                data.get("problem_statement")
-            )
+                    data = json.loads(
+                        result
+                    )
 
-            st.write("### 🚀 MVP Features")
+                    st.subheader(
+                        f"📌 {data.get('project_title', 'MVP Plan')}"
+                    )
 
-            for feature in data.get(
-                "mvp_features",
-                []
-            ):
+                    st.write(
+                        "**Problem:**",
+                        data.get(
+                            "problem_statement",
+                            "Not provided."
+                        )
+                    )
 
-                st.write(
-                    f"• {feature}"
-                )
+                    st.write(
+                        "### 🚀 MVP Features"
+                    )
 
-            st.info(
-                data.get(
-                    "tech_stack_mapping",
-                    ""
-                )
-            )
+                    features = data.get(
+                        "mvp_features",
+                        []
+                    )
+
+                    if features:
+
+                        for feature in features:
+
+                            st.write(
+                                f"• {feature}"
+                            )
+
+                    else:
+
+                        st.write(
+                            "No features returned."
+                        )
+
+                    st.info(
+                        data.get(
+                            "tech_stack_mapping",
+                            "No tech stack mapping returned."
+                        )
+                    )
+
+                except json.JSONDecodeError:
+
+                    st.error(
+                        "The AI returned an invalid JSON response."
+                    )
+
+                    st.code(
+                        result,
+                        language="text"
+                    )
+
+
+# =========================================================
+# END
+# =========================================================
+
 
