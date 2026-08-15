@@ -1,9 +1,79 @@
 import streamlit as st
 import os
 import json
+import io
+
 from groq import Groq
+from pypdf import PdfReader
+from docx import Document
 
+# =========================================================
+# RESUME FILE EXTRACTION
+# =========================================================
 
+def extract_resume_text(uploaded_file):
+
+    if uploaded_file is None:
+        return ""
+
+    file_name = uploaded_file.name.lower()
+
+    # -----------------------------------------------------
+    # PDF
+    # -----------------------------------------------------
+
+    if file_name.endswith(".pdf"):
+
+        try:
+
+            pdf = PdfReader(uploaded_file)
+
+            text = ""
+
+            for page in pdf.pages:
+
+                page_text = page.extract_text()
+
+                if page_text:
+                    text += page_text + "\n"
+
+            return text.strip()
+
+        except Exception as e:
+
+            st.error(
+                f"Could not read PDF: {e}"
+            )
+
+            return ""
+
+    # -----------------------------------------------------
+    # DOCX
+    # -----------------------------------------------------
+
+    elif file_name.endswith(".docx"):
+
+        try:
+
+            document = Document(uploaded_file)
+
+            text = "\n".join(
+                paragraph.text
+                for paragraph in document.paragraphs
+                if paragraph.text.strip()
+            )
+
+            return text.strip()
+
+        except Exception as e:
+
+            st.error(
+                f"Could not read DOCX: {e}"
+            )
+
+            return ""
+
+    return ""
 # =========================================================
 # PAGE CONFIGURATION
 # =========================================================
@@ -1174,28 +1244,120 @@ elif page == "🔎 Opportunity Radar":
 # RESUME & OUTREACH
 # =========================================================
 
+# =========================================================
+# RESUME & OUTREACH
+# =========================================================
+
 elif page == "📄 Resume & Outreach":
 
     st.header("📄 Resume & Outreach")
 
     st.write(
-        "Tailor your resume and outreach for your target opportunity."
+        "Upload your resume and let CareerPilot AI "
+        "create personalized career content."
     )
 
-    resume_input = st.text_area(
-        "📄 Paste Your Resume",
-        height=250,
-        placeholder="Paste your resume here..."
+    st.divider()
+
+    # =====================================================
+    # RESUME UPLOAD
+    # =====================================================
+
+    st.subheader("📎 Upload Resume")
+
+    uploaded_resume = st.file_uploader(
+        "Upload your resume",
+        type=["pdf", "docx"],
+        help="Upload a PDF or DOCX resume."
     )
+
+    # -----------------------------------------------------
+    # EXTRACT RESUME
+    # -----------------------------------------------------
+
+    if uploaded_resume:
+
+        if st.button(
+            "📖 Extract Resume",
+            type="primary"
+        ):
+
+            with st.spinner(
+                "Reading your resume..."
+            ):
+
+                extracted_text = extract_resume_text(
+                    uploaded_resume
+                )
+
+            if extracted_text:
+
+                st.session_state.resume_text = (
+                    extracted_text
+                )
+
+                st.success(
+                    "Resume successfully extracted! 🎉"
+                )
+
+            else:
+
+                st.error(
+                    "Could not extract text from this file."
+                )
+
+    # =====================================================
+    # RESUME PREVIEW
+    # =====================================================
+
+    if st.session_state.resume_text:
+
+        st.subheader("📄 Resume Preview")
+
+        with st.expander(
+            "View extracted resume text"
+        ):
+
+            st.text_area(
+                "Extracted Resume",
+                value=st.session_state.resume_text,
+                height=300,
+                label_visibility="collapsed"
+            )
+
+        st.success(
+            "✅ Resume is ready for AI processing."
+        )
+
+    else:
+
+        st.info(
+            "Upload a PDF or DOCX resume above."
+        )
+
+    st.divider()
+
+    # =====================================================
+    # JOB DESCRIPTION
+    # =====================================================
+
+    st.subheader("💼 Target Opportunity")
 
     jd_input = st.text_area(
-        "💼 Paste Job Description",
+        "Paste Job Description",
         height=250,
-        placeholder="Paste the job description here..."
+        placeholder=(
+            "Paste the internship or job description "
+            "you want to target..."
+        )
     )
 
+    # =====================================================
+    # OUTPUT TYPE
+    # =====================================================
+
     output_type = st.selectbox(
-        "Choose Output",
+        "✨ What should CareerPilot generate?",
         [
             "LinkedIn Summary",
             "LinkedIn DM",
@@ -1204,35 +1366,82 @@ elif page == "📄 Resume & Outreach":
         ]
     )
 
+    st.divider()
+
+    # =====================================================
+    # GENERATE
+    # =====================================================
+
     if st.button(
-        "✨ Generate Tailored Content",
+        "🚀 Generate Tailored Content",
         type="primary"
     ):
 
-        if not resume_input or not jd_input:
+        resume = st.session_state.resume_text
+
+        # -------------------------------------------------
+        # VALIDATION
+        # -------------------------------------------------
+
+        if not resume:
 
             st.warning(
-                "Please provide both resume and job description."
+                "📎 Please upload and extract your resume first."
+            )
+
+        elif not jd_input.strip():
+
+            st.warning(
+                "💼 Please provide a job description."
+            )
+
+        elif client is None:
+
+            st.error(
+                "⚠️ Groq API is not configured."
             )
 
         else:
 
             with st.spinner(
-                "CareerPilot is tailoring your content..."
+                "🤖 CareerPilot is analyzing your resume..."
             ):
 
                 result = generate_outreach(
-                    resume_input,
+                    resume,
                     jd_input,
                     output_type
                 )
 
             st.success(
-                "Generated successfully! 🎉"
+                "✨ Generated successfully!"
+            )
+
+            # -------------------------------------------------
+            # RESULT
+            # -------------------------------------------------
+
+            st.subheader(
+                f"🤖 Generated {output_type}"
             )
 
             st.markdown(result)
 
+            # -------------------------------------------------
+            # COPY / SAVE AREA
+            # -------------------------------------------------
+
+            st.divider()
+
+            st.download_button(
+                label="📥 Download Content",
+                data=result,
+                file_name=(
+                    f"careerpilot_"
+                    f"{output_type.lower().replace(' ', '_')}.txt"
+                ),
+                mime="text/plain"
+            )
 
 # =========================================================
 # SKILL GAP ANALYZER
