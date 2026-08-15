@@ -25,6 +25,44 @@ st.caption("Your AI Career Copilot")
 
 if "career_profile" not in st.session_state:
     st.session_state.career_profile = {}
+    
+# =========================================================
+# CAREER READINESS SCORE
+# =========================================================
+
+def calculate_readiness(profile):
+
+    score = 0
+
+    # Skills
+    if len(profile["skills"]) >= 5:
+        score += 25
+    elif len(profile["skills"]) >= 3:
+        score += 18
+    elif len(profile["skills"]) >= 1:
+        score += 10
+
+    # Projects
+    if profile["projects"].strip():
+        score += 20
+
+    # Experience
+    if profile["experience"].strip():
+        score += 20
+
+    # Education
+    if profile["cgpa"] >= 8:
+        score += 20
+    elif profile["cgpa"] >= 7:
+        score += 15
+    elif profile["cgpa"] >= 6:
+        score += 10
+
+    # Career goal
+    if profile["target_role"] != "Other":
+        score += 15
+
+    return score
 
 
 # =========================================================
@@ -67,6 +105,22 @@ if page == "🏠 Dashboard":
     else:
 
         profile = st.session_state.career_profile
+        readiness_score = calculate_readiness(profile)
+        st.subheader("🎯 Career Readiness")
+
+st.metric(
+    "Readiness Score",
+    f"{readiness_score}/100"
+)
+
+if readiness_score >= 80:
+    st.success("🔥 You're looking strong for your target role!")
+
+elif readiness_score >= 60:
+    st.warning("🟡 You're on the right track, but there are areas to improve.")
+
+else:
+    st.error("🔴 You have some important gaps to work on.")
 
         st.subheader(
             f"Welcome, {profile['name']} 👋"
