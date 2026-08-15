@@ -69,15 +69,17 @@ elif page == "👤 Career Profile":
         step=0.01
     )
     if st.button("💾 Save Career Profile", type="primary"):
-    st.session_state.career_profile = {
-        "name": name,
-        "degree": degree,
-        "year": year,
-        "branch": branch,
-        "cgpa": cgpa
-    }
+        st.session_state.career_profile = {
+            "name": name,
+            "degree": degree,
+            "year": year,
+            "branch": branch,
+            "cgpa": cgpa
+       }
 
-    st.success("Career profile saved successfully! 🎉")
+       st.success("Career profile saved successfully! 🎉")
+
+   st.write(st.session_state.career_profile)
 
 elif page == "🔎 Opportunity Radar":
     st.header("🔎 Opportunity Radar")
