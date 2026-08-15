@@ -1,4 +1,8 @@
 import streamlit as st
+import os
+import json
+from groq import Groq
+
 
 # =========================================================
 # PAGE CONFIGURATION
@@ -12,7 +16,7 @@ st.set_page_config(
 
 
 # =========================================================
-# APP HEADER
+# HEADER
 # =========================================================
 
 st.title("🤖 CareerPilot AI")
@@ -25,6 +29,36 @@ st.caption("Your AI Career Copilot")
 
 if "career_profile" not in st.session_state:
     st.session_state.career_profile = {}
+
+if "applications" not in st.session_state:
+    st.session_state.applications = []
+
+if "resume_text" not in st.session_state:
+    st.session_state.resume_text = ""
+
+
+# =========================================================
+# GROQ API
+# =========================================================
+
+api_key = os.environ.get("GROQ_API_KEY")
+
+if not api_key:
+    try:
+        api_key = st.secrets["GROQ_API_KEY"]
+    except Exception:
+        api_key = None
+
+if not api_key:
+    st.warning(
+        "⚠️ Groq API key not found. "
+        "AI features will not work until you add GROQ_API_KEY."
+    )
+
+    client = None
+
+else:
+    client = Groq(api_key=api_key)
 
 
 # =========================================================
@@ -110,19 +144,117 @@ ROLE_SKILLS = {
 
 
 # =========================================================
+# SAMPLE OPPORTUNITIES
+# =========================================================
+
+OPPORTUNITIES = [
+
+    {
+        "id": 1,
+        "title": "Data Analyst Intern",
+        "company": "TechNova",
+        "location": "Hyderabad",
+        "type": "Internship",
+        "required_skills": [
+            "Python",
+            "SQL",
+            "Pandas",
+            "Data Visualization"
+        ],
+        "description": (
+            "Work with datasets, dashboards and "
+            "business analytics."
+        )
+    },
+
+    {
+        "id": 2,
+        "title": "Python Developer Intern",
+        "company": "CodeWorks",
+        "location": "Hyderabad",
+        "type": "Internship",
+        "required_skills": [
+            "Python",
+            "SQL",
+            "Git/GitHub"
+        ],
+        "description": (
+            "Build backend applications using Python."
+        )
+    },
+
+    {
+        "id": 3,
+        "title": "Machine Learning Intern",
+        "company": "AI Labs",
+        "location": "Bengaluru",
+        "type": "Internship",
+        "required_skills": [
+            "Python",
+            "NumPy",
+            "Pandas",
+            "Machine Learning"
+        ],
+        "description": (
+            "Develop machine learning models "
+            "and experiments."
+        )
+    },
+
+    {
+        "id": 4,
+        "title": "Frontend Developer Intern",
+        "company": "WebCraft",
+        "location": "Remote",
+        "type": "Internship",
+        "required_skills": [
+            "HTML/CSS",
+            "JavaScript",
+            "React",
+            "Git/GitHub"
+        ],
+        "description": (
+            "Build modern web interfaces "
+            "and frontend applications."
+        )
+    },
+
+    {
+        "id": 5,
+        "title": "Cybersecurity Intern",
+        "company": "SecureNet",
+        "location": "Hyderabad",
+        "type": "Internship",
+        "required_skills": [
+            "Python",
+            "Cybersecurity",
+            "SQL",
+            "Git/GitHub"
+        ],
+        "description": (
+            "Assist with security monitoring "
+            "and vulnerability analysis."
+        )
+    }
+]
+
+
+# =========================================================
 # SKILL GAP ANALYZER
 # =========================================================
 
 def analyze_skill_gap(profile):
 
-    target_role = profile["target_role"]
+    target_role = profile.get("target_role", "Other")
 
     required_skills = ROLE_SKILLS.get(
         target_role,
         []
     )
 
-    user_skills = set(profile["skills"])
+    user_skills = set(
+        profile.get("skills", [])
+    )
 
     matched_skills = []
     missing_skills = []
@@ -137,13 +269,19 @@ def analyze_skill_gap(profile):
 
     return matched_skills, missing_skills
 
+
 # =========================================================
 # OPPORTUNITY MATCHING
 # =========================================================
 
-def calculate_opportunity_match(profile, opportunity):
+def calculate_opportunity_match(
+    profile,
+    opportunity
+):
 
-    user_skills = set(profile["skills"])
+    user_skills = set(
+        profile.get("skills", [])
+    )
 
     required_skills = set(
         opportunity["required_skills"]
@@ -174,8 +312,10 @@ def calculate_opportunity_match(profile, opportunity):
         list(matched_skills),
         list(missing_skills)
     )
+
+
 # =========================================================
-# CAREER READINESS SCORE
+# CAREER READINESS
 # =========================================================
 
 def calculate_readiness(profile):
@@ -183,151 +323,278 @@ def calculate_readiness(profile):
     score = 0
 
     # -----------------------------------------------------
-    # ROLE SKILL MATCH
+    # SKILLS
     # -----------------------------------------------------
 
-    matched_skills, missing_skills = analyze_skill_gap(profile)
+    matched_skills, missing_skills = analyze_skill_gap(
+        profile
+    )
 
     required_skills = ROLE_SKILLS.get(
-        profile["target_role"],
+        profile.get("target_role", "Other"),
         []
     )
 
     if required_skills:
 
-        skill_score = (
-            len(matched_skills) / len(required_skills)
+        score += (
+            len(matched_skills)
+            / len(required_skills)
         ) * 40
-
-        score += skill_score
 
     else:
 
-        # Fallback if target role is "Other"
+        skill_count = len(
+            profile.get("skills", [])
+        )
 
-        if len(profile["skills"]) >= 5:
+        if skill_count >= 5:
             score += 40
 
-        elif len(profile["skills"]) >= 3:
+        elif skill_count >= 3:
             score += 30
 
-        elif len(profile["skills"]) >= 1:
+        elif skill_count >= 1:
             score += 20
 
-# =========================================================
-# SAMPLE OPPORTUNITIES
-# =========================================================
-
-OPPORTUNITIES = [
-
-    {
-        "title": "Data Analyst Intern",
-        "company": "TechNova",
-        "location": "Hyderabad",
-        "type": "Internship",
-        "required_skills": [
-            "Python",
-            "SQL",
-            "Pandas",
-            "Data Visualization"
-        ],
-        "description": "Work with datasets, dashboards and business analytics."
-    },
-
-    {
-        "title": "Python Developer Intern",
-        "company": "CodeWorks",
-        "location": "Hyderabad",
-        "type": "Internship",
-        "required_skills": [
-            "Python",
-            "SQL",
-            "Git/GitHub"
-        ],
-        "description": "Build backend applications using Python."
-    },
-
-    {
-        "title": "Machine Learning Intern",
-        "company": "AI Labs",
-        "location": "Bengaluru",
-        "type": "Internship",
-        "required_skills": [
-            "Python",
-            "NumPy",
-            "Pandas",
-            "Machine Learning"
-        ],
-        "description": "Develop machine learning models and experiments."
-    },
-
-    {
-        "title": "Frontend Developer Intern",
-        "company": "WebCraft",
-        "location": "Remote",
-        "type": "Internship",
-        "required_skills": [
-            "HTML/CSS",
-            "JavaScript",
-            "React",
-            "Git/GitHub"
-        ],
-        "description": "Build modern web interfaces and frontend applications."
-    },
-
-    {
-        "title": "Cybersecurity Intern",
-        "company": "SecureNet",
-        "location": "Hyderabad",
-        "type": "Internship",
-        "required_skills": [
-            "Python",
-            "Cybersecurity",
-            "SQL",
-            "Git/GitHub"
-        ],
-        "description": "Assist with security monitoring and vulnerability analysis."
-    }
-]
     # -----------------------------------------------------
     # PROJECTS
     # -----------------------------------------------------
 
-    if profile["projects"].strip():
+    if profile.get("projects", "").strip():
         score += 20
-
 
     # -----------------------------------------------------
     # EXPERIENCE
     # -----------------------------------------------------
 
-    if profile["experience"].strip():
+    if profile.get("experience", "").strip():
         score += 20
 
-
     # -----------------------------------------------------
-    # EDUCATION
+    # CGPA
     # -----------------------------------------------------
 
-    if profile["cgpa"] >= 8:
+    cgpa = profile.get("cgpa", 0)
+
+    if cgpa >= 8:
         score += 20
 
-    elif profile["cgpa"] >= 7:
+    elif cgpa >= 7:
         score += 15
 
-    elif profile["cgpa"] >= 6:
+    elif cgpa >= 6:
         score += 10
-
-
-    # -----------------------------------------------------
-    # LIMIT SCORE TO 100
-    # -----------------------------------------------------
 
     return min(round(score), 100)
 
 
 # =========================================================
-# SIDEBAR NAVIGATION
+# AI OPPORTUNITY ANALYSIS
+# =========================================================
+
+def generate_opportunity_analysis(
+    profile,
+    opportunity,
+    matched_skills,
+    missing_skills
+):
+
+    if client is None:
+        return (
+            "Groq API is not configured. "
+            "Please add your GROQ_API_KEY."
+        )
+
+    prompt = f"""
+You are CareerPilot AI, an AI career advisor.
+
+Help a college student decide whether they should apply
+for an internship.
+
+STUDENT PROFILE
+
+Target Role:
+{profile.get("target_role")}
+
+Skills:
+{", ".join(profile.get("skills", []))}
+
+Projects:
+{profile.get("projects", "None")}
+
+Experience:
+{profile.get("experience", "None")}
+
+
+OPPORTUNITY
+
+Title:
+{opportunity["title"]}
+
+Company:
+{opportunity["company"]}
+
+Location:
+{opportunity["location"]}
+
+Required Skills:
+{", ".join(opportunity["required_skills"])}
+
+Skills Student Has:
+{", ".join(matched_skills)}
+
+Missing Skills:
+{", ".join(missing_skills)}
+
+
+Return exactly these sections:
+
+### WHY APPLY
+Explain why this student is reasonably suited
+for the opportunity.
+
+### SKILL GAP
+Explain the most important missing skills.
+
+### ACTION PLAN
+Give 3 practical steps the student can take
+before or while applying.
+
+### FINAL ADVICE
+Clearly say whether the student should:
+APPLY NOW,
+APPLY AFTER PREPARATION,
+or
+BUILD MORE SKILLS FIRST.
+
+Important:
+Never invent skills, achievements, experience,
+certifications or projects.
+"""
+
+    response = client.chat.completions.create(
+
+        model="llama-3.3-70b-versatile",
+
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+
+        temperature=0.3
+    )
+
+    return response.choices[0].message.content
+
+
+# =========================================================
+# AI RESUME / OUTREACH
+# =========================================================
+
+def generate_outreach(
+    resume,
+    job_description,
+    output_type
+):
+
+    if client is None:
+        return (
+            "Groq API is not configured. "
+            "Please add your GROQ_API_KEY."
+        )
+
+    prompts = {
+
+        "LinkedIn Summary": f"""
+Write a professional LinkedIn About summary.
+
+Only use facts from the resume.
+Do not invent information.
+
+Maximum 3 short paragraphs.
+
+RESUME:
+{resume}
+
+JOB DESCRIPTION:
+{job_description}
+""",
+
+        "LinkedIn DM": f"""
+Write a LinkedIn message to a recruiter.
+
+Maximum 75 words.
+
+Use only facts from the resume.
+Be professional and confident.
+
+RESUME:
+{resume}
+
+JOB DESCRIPTION:
+{job_description}
+""",
+
+        "Cold Email": f"""
+Write a professional cold email to a hiring manager.
+
+Include:
+- Subject line
+- Short introduction
+- Relevant skills
+- Clear call to action
+
+Only use facts from the resume.
+
+RESUME:
+{resume}
+
+JOB DESCRIPTION:
+{job_description}
+""",
+
+        "Cover Letter": f"""
+Write a professional cover letter.
+
+Structure:
+- Greeting
+- Opening
+- Relevant experience/skills
+- Why candidate fits
+- Closing
+
+Only use facts from the resume.
+
+RESUME:
+{resume}
+
+JOB DESCRIPTION:
+{job_description}
+"""
+    }
+
+    response = client.chat.completions.create(
+
+        model="llama-3.3-70b-versatile",
+
+        messages=[
+            {
+                "role": "user",
+                "content": prompts[output_type]
+            }
+        ],
+
+        temperature=0.3
+    )
+
+    return response.choices[0].message.content
+
+
+# =========================================================
+# SIDEBAR
 # =========================================================
 
 st.sidebar.title("🤖 CareerPilot AI")
@@ -363,211 +630,170 @@ if page == "🏠 Dashboard":
             "Go to 👤 Career Profile and add your details."
         )
 
-    else:
+        st.stop()
 
-        profile = st.session_state.career_profile
+    profile = st.session_state.career_profile
 
-        readiness_score = calculate_readiness(profile)
+    readiness_score = calculate_readiness(
+        profile
+    )
 
-        matched_skills, missing_skills = analyze_skill_gap(
-            profile
+    matched_skills, missing_skills = analyze_skill_gap(
+        profile
+    )
+
+    st.subheader(
+        f"Welcome, {profile.get('name', 'Student')} 👋"
+    )
+
+    st.write(
+        "Here's your personalized CareerPilot overview."
+    )
+
+    st.divider()
+
+    # -----------------------------------------------------
+    # READINESS
+    # -----------------------------------------------------
+
+    st.subheader("🎯 Career Readiness")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.metric(
+            "Readiness Score",
+            f"{readiness_score}/100"
         )
 
+    with col2:
 
-        # -------------------------------------------------
-        # WELCOME
-        # -------------------------------------------------
+        if readiness_score >= 80:
 
-        st.subheader(
-            f"Welcome, {profile['name']} 👋"
+            st.success(
+                "🔥 Excellent! You're looking strong."
+            )
+
+        elif readiness_score >= 60:
+
+            st.warning(
+                "🟡 Good progress. A few gaps remain."
+            )
+
+        else:
+
+            st.error(
+                "🔴 Focus on building your skills."
+            )
+
+    st.divider()
+
+    # -----------------------------------------------------
+    # EDUCATION
+    # -----------------------------------------------------
+
+    st.subheader("🎓 Education")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Degree",
+            profile.get("degree", "-")
         )
+
+    with col2:
+        st.metric(
+            "Year",
+            profile.get("year", "-")
+        )
+
+    with col3:
+        st.metric(
+            "CGPA",
+            profile.get("cgpa", 0)
+        )
+
+    st.divider()
+
+    # -----------------------------------------------------
+    # CAREER
+    # -----------------------------------------------------
+
+    st.subheader("🎯 Career Goal")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
 
         st.write(
-            "Here's a quick look at your CareerPilot profile."
+            f"**Target Role:** "
+            f"{profile.get('target_role', '-')}"
         )
 
-        st.divider()
+    with col2:
 
+        st.write(
+            f"**Preferred Location:** "
+            f"{profile.get('preferred_location', '-')}"
+        )
 
-        # -------------------------------------------------
-        # CAREER READINESS
-        # -------------------------------------------------
+    st.divider()
 
-        st.subheader("🎯 Career Readiness")
+    # -----------------------------------------------------
+    # SKILLS
+    # -----------------------------------------------------
 
-        col1, col2 = st.columns(2)
+    st.subheader("💻 Skill Summary")
 
-        with col1:
+    col1, col2 = st.columns(2)
 
-            st.metric(
-                "Readiness Score",
-                f"{readiness_score}/100"
-            )
+    with col1:
 
-        with col2:
+        st.write("🟢 **Matched Skills**")
 
-            if readiness_score >= 80:
+        if matched_skills:
 
-                st.success(
-                    "🔥 You're looking strong for your target role!"
-                )
-
-            elif readiness_score >= 60:
-
-                st.warning(
-                    "🟡 You're on the right track, "
-                    "but there are areas to improve."
-                )
-
-            else:
-
-                st.error(
-                    "🔴 You have some important gaps to work on."
-                )
-
-
-        st.divider()
-
-
-        # -------------------------------------------------
-        # EDUCATION
-        # -------------------------------------------------
-
-        st.subheader("🎓 Education")
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-
-            st.metric(
-                "Degree",
-                profile["degree"]
-            )
-
-        with col2:
-
-            st.metric(
-                "Year",
-                profile["year"]
-            )
-
-        with col3:
-
-            st.metric(
-                "CGPA",
-                profile["cgpa"]
-            )
-
-
-        st.divider()
-
-
-        # -------------------------------------------------
-        # CAREER GOAL
-        # -------------------------------------------------
-
-        st.subheader("🎯 Career Goal")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            st.write(
-                f"**Target Role:** "
-                f"{profile['target_role']}"
-            )
-
-        with col2:
-
-            st.write(
-                f"**Preferred Location:** "
-                f"{profile['preferred_location']}"
-            )
-
-
-        st.divider()
-
-
-        # -------------------------------------------------
-        # SKILL SUMMARY
-        # -------------------------------------------------
-
-        st.subheader("💻 Skill Summary")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            st.write("🟢 **Matched Skills**")
-
-            if matched_skills:
-
-                for skill in matched_skills:
-
-                    st.write(f"✓ {skill}")
-
-            else:
-
-                st.write("No matching skills yet.")
-
-
-        with col2:
-
-            st.write("🔴 **Skill Gaps**")
-
-            if missing_skills:
-
-                for skill in missing_skills:
-
-                    st.write(f"✗ {skill}")
-
-            else:
-
-                st.write("No major skill gaps 🎉")
-
-
-        st.divider()
-
-
-        # -------------------------------------------------
-        # PROJECTS
-        # -------------------------------------------------
-
-        st.subheader("🚀 Projects")
-
-        if profile["projects"]:
-
-            st.write(
-                profile["projects"]
-            )
+            for skill in matched_skills:
+                st.write(f"✓ {skill}")
 
         else:
+            st.write("No matching skills yet.")
 
-            st.write(
-                "No projects added yet."
-            )
+    with col2:
 
+        st.write("🔴 **Skill Gaps**")
 
-        st.divider()
+        if missing_skills:
 
-
-        # -------------------------------------------------
-        # EXPERIENCE
-        # -----------------------------------------------------
-
-        st.subheader("💼 Experience")
-
-        if profile["experience"]:
-
-            st.write(
-                profile["experience"]
-            )
+            for skill in missing_skills:
+                st.write(f"✗ {skill}")
 
         else:
+            st.write("No major skill gaps 🎉")
 
-            st.write(
-                "No experience added yet."
-            )
+    st.divider()
+
+    st.subheader("🚀 Projects")
+
+    st.write(
+        profile.get(
+            "projects",
+            "No projects added."
+        )
+    )
+
+    st.divider()
+
+    st.subheader("💼 Experience")
+
+    st.write(
+        profile.get(
+            "experience",
+            "No experience added."
+        )
+    )
 
 
 # =========================================================
@@ -582,11 +808,6 @@ elif page == "👤 Career Profile":
         "Tell CareerPilot about yourself so it can "
         "personalize your career recommendations."
     )
-
-
-    # -----------------------------------------------------
-    # BASIC INFORMATION
-    # -----------------------------------------------------
 
     st.subheader("👤 Basic Information")
 
@@ -624,12 +845,10 @@ elif page == "👤 Career Profile":
             ]
         )
 
-
     branch = st.text_input(
         "Branch / Specialization",
         placeholder="e.g. Computer Science, Data Science"
     )
-
 
     cgpa = st.number_input(
         "CGPA",
@@ -637,11 +856,6 @@ elif page == "👤 Career Profile":
         max_value=10.0,
         step=0.01
     )
-
-
-    # -----------------------------------------------------
-    # SKILLS
-    # -----------------------------------------------------
 
     st.subheader("💻 Skills")
 
@@ -667,11 +881,6 @@ elif page == "👤 Career Profile":
         ]
     )
 
-
-    # -----------------------------------------------------
-    # CAREER GOAL
-    # -----------------------------------------------------
-
     st.subheader("🎯 Career Goal")
 
     target_role = st.selectbox(
@@ -690,16 +899,10 @@ elif page == "👤 Career Profile":
         ]
     )
 
-
     preferred_location = st.text_input(
         "📍 Preferred Location",
         placeholder="e.g. Hyderabad, Bengaluru, Remote"
     )
-
-
-    # -----------------------------------------------------
-    # PROJECTS
-    # -----------------------------------------------------
 
     st.subheader("🚀 Projects")
 
@@ -712,26 +915,16 @@ elif page == "👤 Career Profile":
         height=120
     )
 
-
-    # -----------------------------------------------------
-    # EXPERIENCE
-    # -----------------------------------------------------
-
     st.subheader("💼 Internships / Experience")
 
     experience = st.text_area(
         "Tell us about your experience",
         placeholder=(
-            "Mention internships, freelance work, "
-            "volunteering, or relevant experience."
+            "Mention internships, freelance work "
+            "or relevant experience."
         ),
         height=100
     )
-
-
-    # -----------------------------------------------------
-    # SAVE PROFILE
-    # -----------------------------------------------------
 
     st.divider()
 
@@ -743,23 +936,14 @@ elif page == "👤 Career Profile":
         st.session_state.career_profile = {
 
             "name": name,
-
             "degree": degree,
-
             "year": year,
-
             "branch": branch,
-
             "cgpa": cgpa,
-
             "skills": skills,
-
             "target_role": target_role,
-
             "preferred_location": preferred_location,
-
             "projects": projects,
-
             "experience": experience
         }
 
@@ -772,22 +956,14 @@ elif page == "👤 Career Profile":
 # OPPORTUNITY RADAR
 # =========================================================
 
-# =========================================================
-# OPPORTUNITY RADAR
-# =========================================================
-
 elif page == "🔎 Opportunity Radar":
 
     st.header("🔎 Opportunity Radar")
 
     st.write(
-        "🎯 Discover opportunities matched to your "
-        "skills, career goal and location."
+        "🎯 Discover opportunities matched to "
+        "your skills and career goal."
     )
-
-    # -----------------------------------------------------
-    # CHECK PROFILE
-    # -----------------------------------------------------
 
     if not st.session_state.career_profile:
 
@@ -795,195 +971,203 @@ elif page == "🔎 Opportunity Radar":
             "Please complete your Career Profile first."
         )
 
-    else:
+        st.stop()
 
-        profile = st.session_state.career_profile
+    profile = st.session_state.career_profile
 
-        # -------------------------------------------------
-        # FILTER OPTIONS
-        # -------------------------------------------------
+    col1, col2 = st.columns(2)
 
-        col1, col2 = st.columns(2)
+    with col1:
 
-        with col1:
-
-            selected_type = st.selectbox(
-                "Opportunity Type",
-                [
-                    "All",
-                    "Internship"
-                ]
-            )
-
-        with col2:
-
-            selected_location = st.selectbox(
-                "Location",
-                [
-                    "All",
-                    "Hyderabad",
-                    "Bengaluru",
-                    "Remote"
-                ]
-            )
-
-        st.divider()
-
-        # -------------------------------------------------
-        # FIND MATCHES
-        # -------------------------------------------------
-
-        matched_opportunities = []
-
-        for opportunity in OPPORTUNITIES:
-
-            # Type filter
-            if (
-                selected_type != "All"
-                and opportunity["type"] != selected_type
-            ):
-                continue
-
-            # Location filter
-            if (
-                selected_location != "All"
-                and opportunity["location"] != selected_location
-            ):
-                continue
-
-            match_percentage, matched_skills, missing_skills = (
-                calculate_opportunity_match(
-                    profile,
-                    opportunity
-                )
-            )
-
-            matched_opportunities.append(
-                (
-                    match_percentage,
-                    opportunity,
-                    matched_skills,
-                    missing_skills
-                )
-            )
-
-        # -------------------------------------------------
-        # SORT BY MATCH
-        # -------------------------------------------------
-
-        matched_opportunities.sort(
-            key=lambda x: x[0],
-            reverse=True
+        selected_type = st.selectbox(
+            "Opportunity Type",
+            [
+                "All",
+                "Internship"
+            ]
         )
 
-        # -------------------------------------------------
-        # DISPLAY RESULTS
-        # -------------------------------------------------
+    with col2:
 
-        st.subheader(
-            "🔥 Recommended Opportunities"
+        selected_location = st.selectbox(
+            "Location",
+            [
+                "All",
+                "Hyderabad",
+                "Bengaluru",
+                "Remote"
+            ]
         )
 
-        if not matched_opportunities:
+    st.divider()
 
-            st.info(
-                "No opportunities found with your current filters."
+    opportunities = []
+
+    for opportunity in OPPORTUNITIES:
+
+        if (
+            selected_type != "All"
+            and opportunity["type"] != selected_type
+        ):
+            continue
+
+        if (
+            selected_location != "All"
+            and opportunity["location"] != selected_location
+        ):
+            continue
+
+        match_percentage, matched_skills, missing_skills = (
+            calculate_opportunity_match(
+                profile,
+                opportunity
             )
+        )
 
-        else:
-
-            for (
+        opportunities.append(
+            (
                 match_percentage,
                 opportunity,
                 matched_skills,
                 missing_skills
-            ) in matched_opportunities:
+            )
+        )
 
-                with st.container(border=True):
+    opportunities.sort(
+        key=lambda x: x[0],
+        reverse=True
+    )
 
-                    col1, col2 = st.columns([3, 1])
+    st.subheader("🔥 Recommended Opportunities")
 
-                    with col1:
+    for (
+        match_percentage,
+        opportunity,
+        matched_skills,
+        missing_skills
+    ) in opportunities:
 
-                        st.subheader(
-                            opportunity["title"]
+        with st.container(border=True):
+
+            col1, col2 = st.columns([3, 1])
+
+            with col1:
+
+                st.subheader(
+                    opportunity["title"]
+                )
+
+                st.write(
+                    f"🏢 **{opportunity['company']}**"
+                )
+
+                st.write(
+                    f"📍 {opportunity['location']} "
+                    f"• 💼 {opportunity['type']}"
+                )
+
+                st.write(
+                    opportunity["description"]
+                )
+
+            with col2:
+
+                st.metric(
+                    "🎯 Match",
+                    f"{match_percentage}%"
+                )
+
+            if matched_skills:
+
+                st.write(
+                    "🟢 **Skills you have:** "
+                    + ", ".join(matched_skills)
+                )
+
+            if missing_skills:
+
+                st.write(
+                    "🔴 **Missing:** "
+                    + ", ".join(missing_skills)
+                )
+
+            else:
+
+                st.success(
+                    "🔥 You meet all listed requirements!"
+                )
+
+            st.divider()
+
+            if st.button(
+                "✨ Analyze My Chances",
+                key=f"analyze_{opportunity['id']}"
+            ):
+
+                with st.spinner(
+                    "CareerPilot is analyzing..."
+                ):
+
+                    analysis = generate_opportunity_analysis(
+                        profile,
+                        opportunity,
+                        matched_skills,
+                        missing_skills
+                    )
+
+                st.markdown(
+                    "### 🤖 CareerPilot Analysis"
+                )
+
+                st.markdown(analysis)
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                if st.button(
+                    "📋 Add to Applications",
+                    key=f"track_{opportunity['id']}"
+                ):
+
+                    application = {
+                        "title": opportunity["title"],
+                        "company": opportunity["company"],
+                        "location": opportunity["location"],
+                        "status": "Saved"
+                    }
+
+                    if application not in st.session_state.applications:
+
+                        st.session_state.applications.append(
+                            application
                         )
 
-                        st.write(
-                            f"🏢 **{opportunity['company']}**"
-                        )
+                    st.success(
+                        "Added to Application Tracker! 🎉"
+                    )
 
-                        st.write(
-                            f"📍 {opportunity['location']}  "
-                            f"•  💼 {opportunity['type']}"
-                        )
+            with col2:
 
-                        st.write(
-                            opportunity["description"]
-                        )
+                if st.button(
+                    "🚀 Mark as Applied",
+                    key=f"apply_{opportunity['id']}"
+                ):
 
-                    with col2:
+                    application = {
+                        "title": opportunity["title"],
+                        "company": opportunity["company"],
+                        "location": opportunity["location"],
+                        "status": "Applied"
+                    }
 
-                        st.metric(
-                            "🎯 Match",
-                            f"{match_percentage}%"
-                        )
+                    st.session_state.applications.append(
+                        application
+                    )
 
-                    # -------------------------------------
-                    # SKILL MATCH
-                    # -------------------------------------
-
-                    if matched_skills:
-
-                        st.write(
-                            "🟢 **Skills you have:** "
-                            + ", ".join(matched_skills)
-                        )
-
-                    # -------------------------------------
-                    # SKILL GAPS
-                    # -------------------------------------
-
-                    if missing_skills:
-
-                        st.write(
-                            "🔴 **Missing:** "
-                            + ", ".join(missing_skills)
-                        )
-
-                    else:
-
-                        st.success(
-                            "🔥 You meet all listed skill requirements!"
-                        )
-
-                    # -------------------------------------
-                    # ACTION
-                    # -------------------------------------
-
-                    col1, col2 = st.columns(2)
-
-                    with col1:
-
-                        if st.button(
-                            "📄 Tailor Resume",
-                            key=f"resume_{opportunity['title']}"
-                        ):
-
-                            st.info(
-                                "Resume Tailor will open here next."
-                            )
-
-                    with col2:
-
-                        if st.button(
-                            "🚀 Apply",
-                            key=f"apply_{opportunity['title']}"
-                        ):
-
-                            st.success(
-                                "Application marked for tracking! 🎉"
-                            )
+                    st.success(
+                        "Application recorded! 🚀"
+                    )
 
 
 # =========================================================
@@ -994,9 +1178,60 @@ elif page == "📄 Resume & Outreach":
 
     st.header("📄 Resume & Outreach")
 
-    st.info(
-        "Your existing Resume Tailor will live here."
+    st.write(
+        "Tailor your resume and outreach for your target opportunity."
     )
+
+    resume_input = st.text_area(
+        "📄 Paste Your Resume",
+        height=250,
+        placeholder="Paste your resume here..."
+    )
+
+    jd_input = st.text_area(
+        "💼 Paste Job Description",
+        height=250,
+        placeholder="Paste the job description here..."
+    )
+
+    output_type = st.selectbox(
+        "Choose Output",
+        [
+            "LinkedIn Summary",
+            "LinkedIn DM",
+            "Cold Email",
+            "Cover Letter"
+        ]
+    )
+
+    if st.button(
+        "✨ Generate Tailored Content",
+        type="primary"
+    ):
+
+        if not resume_input or not jd_input:
+
+            st.warning(
+                "Please provide both resume and job description."
+            )
+
+        else:
+
+            with st.spinner(
+                "CareerPilot is tailoring your content..."
+            ):
+
+                result = generate_outreach(
+                    resume_input,
+                    jd_input,
+                    output_type
+                )
+
+            st.success(
+                "Generated successfully! 🎉"
+            )
+
+            st.markdown(result)
 
 
 # =========================================================
@@ -1007,72 +1242,53 @@ elif page == "🧠 Skill Gap Analyzer":
 
     st.header("🧠 Skill Gap Analyzer")
 
-    st.write(
-        "See how your current skills compare with "
-        "the skills required for your target career."
-    )
-
-
     if not st.session_state.career_profile:
 
         st.warning(
             "Please complete your Career Profile first."
         )
 
-    else:
+        st.stop()
 
-        profile = st.session_state.career_profile
+    profile = st.session_state.career_profile
 
-        matched_skills, missing_skills = analyze_skill_gap(
-            profile
+    matched_skills, missing_skills = analyze_skill_gap(
+        profile
+    )
+
+    required_skills = ROLE_SKILLS.get(
+        profile["target_role"],
+        []
+    )
+
+    st.subheader(
+        f"🎯 Target Role: {profile['target_role']}"
+    )
+
+    if required_skills:
+
+        percentage = round(
+            len(matched_skills)
+            / len(required_skills)
+            * 100
         )
 
-
-        # -------------------------------------------------
-        # TARGET ROLE
-        # -------------------------------------------------
-
-        st.subheader(
-            f"🎯 Target Role: {profile['target_role']}"
+        st.metric(
+            "Skill Match",
+            f"{percentage}%"
         )
 
+    st.divider()
 
-        # -------------------------------------------------
-        # SKILL MATCH SCORE
-        # -------------------------------------------------
+    col1, col2 = st.columns(2)
 
-        required_skills = ROLE_SKILLS.get(
-            profile["target_role"],
-            []
-        )
-
-        if required_skills:
-
-            skill_percentage = round(
-                len(matched_skills)
-                / len(required_skills)
-                * 100
-            )
-
-            st.metric(
-                "Skill Match",
-                f"{skill_percentage}%"
-            )
-
-
-        st.divider()
-
-
-        # -------------------------------------------------
-        # MATCHED SKILLS
-        # -------------------------------------------------
+    with col1:
 
         st.subheader("🟢 Skills You Have")
 
         if matched_skills:
 
             for skill in matched_skills:
-
                 st.success(
                     f"✓ {skill}"
                 )
@@ -1080,20 +1296,16 @@ elif page == "🧠 Skill Gap Analyzer":
         else:
 
             st.info(
-                "No matching skills found yet."
+                "No matching skills yet."
             )
 
+    with col2:
 
-        # -------------------------------------------------
-        # MISSING SKILLS
-        # -------------------------------------------------
-
-        st.subheader("🔴 Skill Gaps")
+        st.subheader("🔴 Skills To Learn")
 
         if missing_skills:
 
             for skill in missing_skills:
-
                 st.error(
                     f"✗ {skill}"
                 )
@@ -1101,8 +1313,7 @@ elif page == "🧠 Skill Gap Analyzer":
         else:
 
             st.success(
-                "🔥 You have all the core skills "
-                "defined for this role!"
+                "🔥 You have all core skills!"
             )
 
 
@@ -1114,9 +1325,56 @@ elif page == "🗺️ Career Roadmap":
 
     st.header("🗺️ Career Roadmap")
 
-    st.info(
-        "Your personalized career roadmap will appear here 🗺️"
-    )
+    if not st.session_state.career_profile:
+
+        st.warning(
+            "Complete your Career Profile first."
+        )
+
+    else:
+
+        profile = st.session_state.career_profile
+
+        st.subheader(
+            f"🚀 Roadmap to {profile['target_role']}"
+        )
+
+        matched, missing = analyze_skill_gap(
+            profile
+        )
+
+        st.write("### Step 1 — Build Core Skills")
+
+        if missing:
+
+            for skill in missing:
+                st.write(
+                    f"📚 Learn **{skill}**"
+                )
+
+        else:
+
+            st.success(
+                "Core skills are already covered!"
+            )
+
+        st.write("### Step 2 — Build Projects")
+
+        st.write(
+            "🚀 Build 2–3 projects related to your target role."
+        )
+
+        st.write("### Step 3 — Apply")
+
+        st.write(
+            "🎯 Start applying to internships and entry-level roles."
+        )
+
+        st.write("### Step 4 — Interview Preparation")
+
+        st.write(
+            "🎤 Practice technical and behavioral interviews."
+        )
 
 
 # =========================================================
@@ -1127,10 +1385,63 @@ elif page == "📋 Application Tracker":
 
     st.header("📋 Application Tracker")
 
-    st.info(
-        "Your internship and job applications "
-        "will appear here 📋"
-    )
+    applications = st.session_state.applications
+
+    if not applications:
+
+        st.info(
+            "No applications yet. "
+            "Find opportunities in Opportunity Radar."
+        )
+
+    else:
+
+        st.subheader(
+            f"📊 Total Applications: {len(applications)}"
+        )
+
+        for index, application in enumerate(
+            applications
+        ):
+
+            with st.container(border=True):
+
+                st.subheader(
+                    application["title"]
+                )
+
+                st.write(
+                    f"🏢 {application['company']}"
+                )
+
+                st.write(
+                    f"📍 {application['location']}"
+                )
+
+                status = st.selectbox(
+                    "Status",
+                    [
+                        "Saved",
+                        "Applied",
+                        "Assessment",
+                        "Interview",
+                        "Offer",
+                        "Rejected"
+                    ],
+                    index=[
+                        "Saved",
+                        "Applied",
+                        "Assessment",
+                        "Interview",
+                        "Offer",
+                        "Rejected"
+                    ].index(
+                        application["status"]
+                    ),
+                    key=f"status_{index}"
+                )
+
+                application["status"] = status
 
 
 # =========================================================
@@ -1139,11 +1450,99 @@ elif page == "📋 Application Tracker":
 
 elif page == "🎤 Interview Coach":
 
-    st.header("🎤 Interview Coach")
+    st.header("🎤 AI Interview Coach")
 
-    st.info(
-        "AI interview preparation will appear here 🎤"
+    if not st.session_state.career_profile:
+
+        st.warning(
+            "Complete your Career Profile first."
+        )
+
+        st.stop()
+
+    profile = st.session_state.career_profile
+
+    interview_role = st.text_input(
+        "Interview Role",
+        value=profile["target_role"]
     )
+
+    interview_question = st.text_area(
+        "Paste an interview question",
+        placeholder="Example: Tell me about yourself."
+    )
+
+    if st.button(
+        "🤖 Generate Answer",
+        type="primary"
+    ):
+
+        if client is None:
+
+            st.error(
+                "Groq API is not configured."
+            )
+
+        elif not interview_question:
+
+            st.warning(
+                "Enter an interview question."
+            )
+
+        else:
+
+            prompt = f"""
+You are an expert interview coach.
+
+Student target role:
+{profile["target_role"]}
+
+Student skills:
+{", ".join(profile["skills"])}
+
+Student projects:
+{profile["projects"]}
+
+Student experience:
+{profile["experience"]}
+
+Interview role:
+{interview_role}
+
+Question:
+{interview_question}
+
+Create a strong but truthful answer.
+
+Do not invent achievements or experience.
+Make the answer sound natural for a college student.
+"""
+
+            with st.spinner(
+                "Preparing your answer..."
+            ):
+
+                response = client.chat.completions.create(
+
+                    model="llama-3.3-70b-versatile",
+
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+
+                    temperature=0.4
+                )
+
+            st.markdown(
+                "### 💬 Suggested Answer"
+            )
+
+            st.write(
+                response.choices[0].message.content
+            )
 
 
 # =========================================================
@@ -1152,10 +1551,124 @@ elif page == "🎤 Interview Coach":
 
 elif page == "💡 Product Builder":
 
-    st.header("💡 Product Builder")
+    st.header("💡 AI Product Builder")
 
-    st.info(
-        "Your existing Hackathon MVP Scoper "
-        "will live here 💡"
+    raw_idea = st.text_input(
+        "Enter your project idea",
+        placeholder=(
+            "Example: AI-powered waste management system"
+        )
     )
+
+    tools_available = st.multiselect(
+        "Available Technologies",
+        [
+            "Python",
+            "Streamlit",
+            "HTML/CSS",
+            "JavaScript",
+            "React",
+            "Groq API",
+            "Gemini API",
+            "Supabase",
+            "Firebase",
+            "SQL"
+        ],
+        default=[
+            "Python",
+            "Streamlit",
+            "Groq API"
+        ]
+    )
+
+    if st.button(
+        "🚀 Scope My MVP",
+        type="primary"
+    ):
+
+        if not raw_idea:
+
+            st.warning(
+                "Enter a project idea first."
+            )
+
+        elif client is None:
+
+            st.error(
+                "Groq API is not configured."
+            )
+
+        else:
+
+            prompt = f"""
+You are a Senior Technical Product Manager.
+
+Create a 24-hour hackathon MVP.
+
+PROJECT IDEA:
+{raw_idea}
+
+AVAILABLE TECHNOLOGIES:
+{", ".join(tools_available)}
+
+Return JSON with:
+
+project_title
+problem_statement
+mvp_features
+tech_stack_mapping
+"""
+
+            with st.spinner(
+                "Building your MVP plan..."
+            ):
+
+                response = client.chat.completions.create(
+
+                    model="llama-3.3-70b-versatile",
+
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+
+                    response_format={
+                        "type": "json_object"
+                    },
+
+                    temperature=0.4
+                )
+
+            data = json.loads(
+                response.choices[0].message.content
+            )
+
+            st.subheader(
+                f"📌 {data.get('project_title')}"
+            )
+
+            st.write(
+                "**Problem:**",
+                data.get("problem_statement")
+            )
+
+            st.write("### 🚀 MVP Features")
+
+            for feature in data.get(
+                "mvp_features",
+                []
+            ):
+
+                st.write(
+                    f"• {feature}"
+                )
+
+            st.info(
+                data.get(
+                    "tech_stack_mapping",
+                    ""
+                )
+            )
 
