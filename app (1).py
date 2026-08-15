@@ -6,8 +6,8 @@ from groq import Groq
 # Page Configuration
 st.set_page_config(page_title="AI Career & Product Suite", page_icon="🚀", layout="wide")
 
-st.title("🚀 AI Student Utility Suite")
-st.write("Build V1 applications powered by Groq & Llama 3.3")
+st.title("🚀 CareerPilot AI")
+st.caption("Your AI Career Copilot")
 
 api_key = os.environ.get("GROQ_API_KEY")
 if not api_key:
