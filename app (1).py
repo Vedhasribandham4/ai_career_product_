@@ -3,7 +3,7 @@ import streamlit as st
 # Page Configuration
 st.set_page_config(
     page_title="CareerPilot AI",
-    page_icon="🚀",
+    page_icon="🤖",
     layout="wide"
 )
 
