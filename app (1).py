@@ -27,15 +27,13 @@ page = st.sidebar.radio(
         "💡 Product Builder"
     ]
 )
-
 # Page Routing
+
 if page == "🏠 Dashboard":
     st.header("🏠 Career Dashboard")
     st.info("Dashboard coming soon 🚀")
 
 elif page == "👤 Career Profile":
-     elif page == "👤 Career Profile":
-
     st.header("👤 My Career Profile")
     st.write("Tell CareerPilot about yourself so it can personalize your career recommendations.")
 
@@ -94,3 +92,4 @@ elif page == "🎤 Interview Coach":
 elif page == "💡 Product Builder":
     st.header("💡 Product Builder")
     st.info("Your existing Hackathon MVP Scoper will live here.")
+
