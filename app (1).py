@@ -7,7 +7,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🚀 CareerPilot AI")
+st.title("🤖 CareerPilot AI")
 st.caption("Your AI Career Copilot")
 
 # Store career profile information
@@ -15,7 +15,7 @@ if "career_profile" not in st.session_state:
     st.session_state.career_profile = {}
 
 # Sidebar Navigation
-st.sidebar.title("🚀 CareerPilot AI")
+st.sidebar.title("🤖 CareerPilot AI")
 
 page = st.sidebar.radio(
     "Navigate",
