@@ -1,8 +1,4 @@
-st.caption("Your AI Career Copilot")
-# Store career profile information
-if "career_profile" not in st.session_state:
-    st.session_state.career_profile = {}
-    import streamlit as st
+import streamlit as st
 
 # Page Configuration
 st.set_page_config(
@@ -13,6 +9,10 @@ st.set_page_config(
 
 st.title("🚀 CareerPilot AI")
 st.caption("Your AI Career Copilot")
+
+# Store career profile information
+if "career_profile" not in st.session_state:
+    st.session_state.career_profile = {}
 
 # Sidebar Navigation
 st.sidebar.title("🚀 CareerPilot AI")
@@ -31,15 +31,21 @@ page = st.sidebar.radio(
         "💡 Product Builder"
     ]
 )
+
 # Page Routing
 
 if page == "🏠 Dashboard":
+
     st.header("🏠 Career Dashboard")
     st.info("Dashboard coming soon 🚀")
 
+
 elif page == "👤 Career Profile":
+
     st.header("👤 My Career Profile")
-    st.write("Tell CareerPilot about yourself so it can personalize your career recommendations.")
+    st.write(
+        "Tell CareerPilot about yourself so it can personalize your career recommendations."
+    )
 
     name = st.text_input("Your Name")
 
@@ -68,44 +74,60 @@ elif page == "👤 Career Profile":
         max_value=10.0,
         step=0.01
     )
+
     if st.button("💾 Save Career Profile", type="primary"):
+
         st.session_state.career_profile = {
             "name": name,
             "degree": degree,
             "year": year,
             "branch": branch,
             "cgpa": cgpa
-       }
+        }
 
-       st.success("Career profile saved successfully! 🎉")
+        st.success("Career profile saved successfully! 🎉")
 
-   st.write(st.session_state.career_profile)
+    st.write(st.session_state.career_profile)
+
 
 elif page == "🔎 Opportunity Radar":
+
     st.header("🔎 Opportunity Radar")
     st.info("Opportunity Radar coming soon 🚀")
 
+
 elif page == "📄 Resume & Outreach":
+
     st.header("📄 Resume & Outreach")
     st.info("Your existing Resume Tailor will live here.")
 
+
 elif page == "🧠 Skill Gap Analyzer":
+
     st.header("🧠 Skill Gap Analyzer")
     st.info("Skill Gap Analyzer coming soon 🚀")
 
+
 elif page == "🗺️ Career Roadmap":
+
     st.header("🗺️ Career Roadmap")
     st.info("Career Roadmap coming soon 🚀")
 
+
 elif page == "📋 Application Tracker":
+
     st.header("📋 Application Tracker")
     st.info("Application Tracker coming soon 🚀")
 
+
 elif page == "🎤 Interview Coach":
+
     st.header("🎤 Interview Coach")
     st.info("Interview Coach coming soon 🚀")
 
+
 elif page == "💡 Product Builder":
+
     st.header("💡 Product Builder")
     st.info("Your existing Hackathon MVP Scoper will live here.")
 
