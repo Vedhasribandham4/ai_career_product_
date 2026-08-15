@@ -34,8 +34,38 @@ if page == "🏠 Dashboard":
     st.info("Dashboard coming soon 🚀")
 
 elif page == "👤 Career Profile":
+     elif page == "👤 Career Profile":
+
     st.header("👤 My Career Profile")
-    st.info("Career Profile coming soon 🚀")
+    st.write("Tell CareerPilot about yourself so it can personalize your career recommendations.")
+
+    name = st.text_input("Your Name")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        degree = st.selectbox(
+            "Degree",
+            ["B.Tech", "B.E.", "B.Sc", "BCA", "MCA", "M.Tech", "Other"]
+        )
+
+    with col2:
+        year = st.selectbox(
+            "Current Year",
+            ["1st Year", "2nd Year", "3rd Year", "4th Year", "Graduate"]
+        )
+
+    branch = st.text_input(
+        "Branch / Specialization",
+        placeholder="e.g. Computer Science, Data Science"
+    )
+
+    cgpa = st.number_input(
+        "CGPA",
+        min_value=0.0,
+        max_value=10.0,
+        step=0.01
+    )
 
 elif page == "🔎 Opportunity Radar":
     st.header("🔎 Opportunity Radar")
