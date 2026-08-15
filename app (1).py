@@ -137,7 +137,43 @@ def analyze_skill_gap(profile):
 
     return matched_skills, missing_skills
 
+# =========================================================
+# OPPORTUNITY MATCHING
+# =========================================================
 
+def calculate_opportunity_match(profile, opportunity):
+
+    user_skills = set(profile["skills"])
+
+    required_skills = set(
+        opportunity["required_skills"]
+    )
+
+    matched_skills = user_skills.intersection(
+        required_skills
+    )
+
+    missing_skills = required_skills.difference(
+        user_skills
+    )
+
+    if required_skills:
+
+        match_percentage = round(
+            len(matched_skills)
+            / len(required_skills)
+            * 100
+        )
+
+    else:
+
+        match_percentage = 0
+
+    return (
+        match_percentage,
+        list(matched_skills),
+        list(missing_skills)
+    )
 # =========================================================
 # CAREER READINESS SCORE
 # =========================================================
@@ -178,7 +214,81 @@ def calculate_readiness(profile):
         elif len(profile["skills"]) >= 1:
             score += 20
 
+# =========================================================
+# SAMPLE OPPORTUNITIES
+# =========================================================
 
+OPPORTUNITIES = [
+
+    {
+        "title": "Data Analyst Intern",
+        "company": "TechNova",
+        "location": "Hyderabad",
+        "type": "Internship",
+        "required_skills": [
+            "Python",
+            "SQL",
+            "Pandas",
+            "Data Visualization"
+        ],
+        "description": "Work with datasets, dashboards and business analytics."
+    },
+
+    {
+        "title": "Python Developer Intern",
+        "company": "CodeWorks",
+        "location": "Hyderabad",
+        "type": "Internship",
+        "required_skills": [
+            "Python",
+            "SQL",
+            "Git/GitHub"
+        ],
+        "description": "Build backend applications using Python."
+    },
+
+    {
+        "title": "Machine Learning Intern",
+        "company": "AI Labs",
+        "location": "Bengaluru",
+        "type": "Internship",
+        "required_skills": [
+            "Python",
+            "NumPy",
+            "Pandas",
+            "Machine Learning"
+        ],
+        "description": "Develop machine learning models and experiments."
+    },
+
+    {
+        "title": "Frontend Developer Intern",
+        "company": "WebCraft",
+        "location": "Remote",
+        "type": "Internship",
+        "required_skills": [
+            "HTML/CSS",
+            "JavaScript",
+            "React",
+            "Git/GitHub"
+        ],
+        "description": "Build modern web interfaces and frontend applications."
+    },
+
+    {
+        "title": "Cybersecurity Intern",
+        "company": "SecureNet",
+        "location": "Hyderabad",
+        "type": "Internship",
+        "required_skills": [
+            "Python",
+            "Cybersecurity",
+            "SQL",
+            "Git/GitHub"
+        ],
+        "description": "Assist with security monitoring and vulnerability analysis."
+    }
+]
     # -----------------------------------------------------
     # PROJECTS
     # -----------------------------------------------------
@@ -662,14 +772,218 @@ elif page == "👤 Career Profile":
 # OPPORTUNITY RADAR
 # =========================================================
 
+# =========================================================
+# OPPORTUNITY RADAR
+# =========================================================
+
 elif page == "🔎 Opportunity Radar":
 
     st.header("🔎 Opportunity Radar")
 
-    st.info(
-        "AI-powered internship and job recommendations "
-        "will appear here 🚀"
+    st.write(
+        "🎯 Discover opportunities matched to your "
+        "skills, career goal and location."
     )
+
+    # -----------------------------------------------------
+    # CHECK PROFILE
+    # -----------------------------------------------------
+
+    if not st.session_state.career_profile:
+
+        st.warning(
+            "Please complete your Career Profile first."
+        )
+
+    else:
+
+        profile = st.session_state.career_profile
+
+        # -------------------------------------------------
+        # FILTER OPTIONS
+        # -------------------------------------------------
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            selected_type = st.selectbox(
+                "Opportunity Type",
+                [
+                    "All",
+                    "Internship"
+                ]
+            )
+
+        with col2:
+
+            selected_location = st.selectbox(
+                "Location",
+                [
+                    "All",
+                    "Hyderabad",
+                    "Bengaluru",
+                    "Remote"
+                ]
+            )
+
+        st.divider()
+
+        # -------------------------------------------------
+        # FIND MATCHES
+        # -------------------------------------------------
+
+        matched_opportunities = []
+
+        for opportunity in OPPORTUNITIES:
+
+            # Type filter
+            if (
+                selected_type != "All"
+                and opportunity["type"] != selected_type
+            ):
+                continue
+
+            # Location filter
+            if (
+                selected_location != "All"
+                and opportunity["location"] != selected_location
+            ):
+                continue
+
+            match_percentage, matched_skills, missing_skills = (
+                calculate_opportunity_match(
+                    profile,
+                    opportunity
+                )
+            )
+
+            matched_opportunities.append(
+                (
+                    match_percentage,
+                    opportunity,
+                    matched_skills,
+                    missing_skills
+                )
+            )
+
+        # -------------------------------------------------
+        # SORT BY MATCH
+        # -------------------------------------------------
+
+        matched_opportunities.sort(
+            key=lambda x: x[0],
+            reverse=True
+        )
+
+        # -------------------------------------------------
+        # DISPLAY RESULTS
+        # -------------------------------------------------
+
+        st.subheader(
+            "🔥 Recommended Opportunities"
+        )
+
+        if not matched_opportunities:
+
+            st.info(
+                "No opportunities found with your current filters."
+            )
+
+        else:
+
+            for (
+                match_percentage,
+                opportunity,
+                matched_skills,
+                missing_skills
+            ) in matched_opportunities:
+
+                with st.container(border=True):
+
+                    col1, col2 = st.columns([3, 1])
+
+                    with col1:
+
+                        st.subheader(
+                            opportunity["title"]
+                        )
+
+                        st.write(
+                            f"🏢 **{opportunity['company']}**"
+                        )
+
+                        st.write(
+                            f"📍 {opportunity['location']}  "
+                            f"•  💼 {opportunity['type']}"
+                        )
+
+                        st.write(
+                            opportunity["description"]
+                        )
+
+                    with col2:
+
+                        st.metric(
+                            "🎯 Match",
+                            f"{match_percentage}%"
+                        )
+
+                    # -------------------------------------
+                    # SKILL MATCH
+                    # -------------------------------------
+
+                    if matched_skills:
+
+                        st.write(
+                            "🟢 **Skills you have:** "
+                            + ", ".join(matched_skills)
+                        )
+
+                    # -------------------------------------
+                    # SKILL GAPS
+                    # -------------------------------------
+
+                    if missing_skills:
+
+                        st.write(
+                            "🔴 **Missing:** "
+                            + ", ".join(missing_skills)
+                        )
+
+                    else:
+
+                        st.success(
+                            "🔥 You meet all listed skill requirements!"
+                        )
+
+                    # -------------------------------------
+                    # ACTION
+                    # -------------------------------------
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+
+                        if st.button(
+                            "📄 Tailor Resume",
+                            key=f"resume_{opportunity['title']}"
+                        ):
+
+                            st.info(
+                                "Resume Tailor will open here next."
+                            )
+
+                    with col2:
+
+                        if st.button(
+                            "🚀 Apply",
+                            key=f"apply_{opportunity['title']}"
+                        ):
+
+                            st.success(
+                                "Application marked for tracking! 🎉"
+                            )
 
 
 # =========================================================
