@@ -28,6 +28,117 @@ if "career_profile" not in st.session_state:
 
 
 # =========================================================
+# ROLE SKILL REQUIREMENTS
+# =========================================================
+
+ROLE_SKILLS = {
+
+    "Software Engineer": [
+        "Python",
+        "Java",
+        "C++",
+        "SQL",
+        "Git/GitHub"
+    ],
+
+    "Data Analyst": [
+        "Python",
+        "SQL",
+        "Pandas",
+        "NumPy",
+        "Data Analysis",
+        "Data Visualization"
+    ],
+
+    "Data Scientist": [
+        "Python",
+        "SQL",
+        "Pandas",
+        "NumPy",
+        "Machine Learning",
+        "Data Visualization"
+    ],
+
+    "Machine Learning Engineer": [
+        "Python",
+        "NumPy",
+        "Pandas",
+        "Machine Learning",
+        "SQL",
+        "Git/GitHub"
+    ],
+
+    "AI Engineer": [
+        "Python",
+        "Machine Learning",
+        "SQL",
+        "Git/GitHub",
+        "Cloud Computing"
+    ],
+
+    "Python Developer": [
+        "Python",
+        "SQL",
+        "Git/GitHub",
+        "HTML/CSS"
+    ],
+
+    "Web Developer": [
+        "HTML/CSS",
+        "JavaScript",
+        "React",
+        "Git/GitHub",
+        "SQL"
+    ],
+
+    "Cloud Engineer": [
+        "Python",
+        "SQL",
+        "Git/GitHub",
+        "Cloud Computing"
+    ],
+
+    "Cybersecurity Analyst": [
+        "Python",
+        "C",
+        "C++",
+        "SQL",
+        "Cybersecurity",
+        "Git/GitHub"
+    ]
+}
+
+
+# =========================================================
+# SKILL GAP ANALYZER
+# =========================================================
+
+def analyze_skill_gap(profile):
+
+    target_role = profile["target_role"]
+
+    required_skills = ROLE_SKILLS.get(
+        target_role,
+        []
+    )
+
+    user_skills = set(profile["skills"])
+
+    matched_skills = []
+    missing_skills = []
+
+    for skill in required_skills:
+
+        if skill in user_skills:
+            matched_skills.append(skill)
+
+        else:
+            missing_skills.append(skill)
+
+    return matched_skills, missing_skills
+
+
+# =========================================================
 # CAREER READINESS SCORE
 # =========================================================
 
@@ -36,17 +147,36 @@ def calculate_readiness(profile):
     score = 0
 
     # -----------------------------------------------------
-    # SKILLS
+    # ROLE SKILL MATCH
     # -----------------------------------------------------
 
-    if len(profile["skills"]) >= 5:
-        score += 25
+    matched_skills, missing_skills = analyze_skill_gap(profile)
 
-    elif len(profile["skills"]) >= 3:
-        score += 18
+    required_skills = ROLE_SKILLS.get(
+        profile["target_role"],
+        []
+    )
 
-    elif len(profile["skills"]) >= 1:
-        score += 10
+    if required_skills:
+
+        skill_score = (
+            len(matched_skills) / len(required_skills)
+        ) * 40
+
+        score += skill_score
+
+    else:
+
+        # Fallback if target role is "Other"
+
+        if len(profile["skills"]) >= 5:
+            score += 40
+
+        elif len(profile["skills"]) >= 3:
+            score += 30
+
+        elif len(profile["skills"]) >= 1:
+            score += 20
 
 
     # -----------------------------------------------------
@@ -80,14 +210,10 @@ def calculate_readiness(profile):
 
 
     # -----------------------------------------------------
-    # CAREER GOAL
+    # LIMIT SCORE TO 100
     # -----------------------------------------------------
 
-    if profile["target_role"] != "Other":
-        score += 15
-
-
-    return score
+    return min(round(score), 100)
 
 
 # =========================================================
@@ -120,10 +246,6 @@ if page == "🏠 Dashboard":
 
     st.header("🏠 Career Dashboard")
 
-    # -----------------------------------------------------
-    # CHECK WHETHER PROFILE EXISTS
-    # -----------------------------------------------------
-
     if not st.session_state.career_profile:
 
         st.info(
@@ -135,8 +257,11 @@ if page == "🏠 Dashboard":
 
         profile = st.session_state.career_profile
 
-        # Calculate readiness score
         readiness_score = calculate_readiness(profile)
+
+        matched_skills, missing_skills = analyze_skill_gap(
+            profile
+        )
 
 
         # -------------------------------------------------
@@ -151,7 +276,6 @@ if page == "🏠 Dashboard":
             "Here's a quick look at your CareerPilot profile."
         )
 
-
         st.divider()
 
 
@@ -161,59 +285,66 @@ if page == "🏠 Dashboard":
 
         st.subheader("🎯 Career Readiness")
 
-        st.metric(
-            "Readiness Score",
-            f"{readiness_score}/100"
-        )
+        col1, col2 = st.columns(2)
 
+        with col1:
 
-        if readiness_score >= 80:
-
-            st.success(
-                "🔥 You're looking strong for your target role!"
+            st.metric(
+                "Readiness Score",
+                f"{readiness_score}/100"
             )
 
-        elif readiness_score >= 60:
+        with col2:
 
-            st.warning(
-                "🟡 You're on the right track, "
-                "but there are areas to improve."
-            )
+            if readiness_score >= 80:
 
-        else:
+                st.success(
+                    "🔥 You're looking strong for your target role!"
+                )
 
-            st.error(
-                "🔴 You have some important gaps to work on."
-            )
+            elif readiness_score >= 60:
+
+                st.warning(
+                    "🟡 You're on the right track, "
+                    "but there are areas to improve."
+                )
+
+            else:
+
+                st.error(
+                    "🔴 You have some important gaps to work on."
+                )
 
 
         st.divider()
 
 
         # -------------------------------------------------
-        # EDUCATION METRICS
+        # EDUCATION
         # -------------------------------------------------
+
+        st.subheader("🎓 Education")
 
         col1, col2, col3 = st.columns(3)
 
         with col1:
 
             st.metric(
-                "🎓 Degree",
+                "Degree",
                 profile["degree"]
             )
 
         with col2:
 
             st.metric(
-                "📚 Year",
+                "Year",
                 profile["year"]
             )
 
         with col3:
 
             st.metric(
-                "📊 CGPA",
+                "CGPA",
                 profile["cgpa"]
             )
 
@@ -248,22 +379,41 @@ if page == "🏠 Dashboard":
 
 
         # -------------------------------------------------
-        # SKILLS
+        # SKILL SUMMARY
         # -------------------------------------------------
 
-        st.subheader("💻 Skills")
+        st.subheader("💻 Skill Summary")
 
-        if profile["skills"]:
+        col1, col2 = st.columns(2)
 
-            st.write(
-                " • ".join(profile["skills"])
-            )
+        with col1:
 
-        else:
+            st.write("🟢 **Matched Skills**")
 
-            st.write(
-                "No skills added yet."
-            )
+            if matched_skills:
+
+                for skill in matched_skills:
+
+                    st.write(f"✓ {skill}")
+
+            else:
+
+                st.write("No matching skills yet.")
+
+
+        with col2:
+
+            st.write("🔴 **Skill Gaps**")
+
+            if missing_skills:
+
+                for skill in missing_skills:
+
+                    st.write(f"✗ {skill}")
+
+            else:
+
+                st.write("No major skill gaps 🎉")
 
 
         st.divider()
@@ -293,7 +443,7 @@ if page == "🏠 Dashboard":
 
         # -------------------------------------------------
         # EXPERIENCE
-        # -------------------------------------------------
+        # -----------------------------------------------------
 
         st.subheader("💼 Experience")
 
@@ -543,9 +693,103 @@ elif page == "🧠 Skill Gap Analyzer":
 
     st.header("🧠 Skill Gap Analyzer")
 
-    st.info(
-        "AI skill gap analysis will appear here 🧠"
+    st.write(
+        "See how your current skills compare with "
+        "the skills required for your target career."
     )
+
+
+    if not st.session_state.career_profile:
+
+        st.warning(
+            "Please complete your Career Profile first."
+        )
+
+    else:
+
+        profile = st.session_state.career_profile
+
+        matched_skills, missing_skills = analyze_skill_gap(
+            profile
+        )
+
+
+        # -------------------------------------------------
+        # TARGET ROLE
+        # -------------------------------------------------
+
+        st.subheader(
+            f"🎯 Target Role: {profile['target_role']}"
+        )
+
+
+        # -------------------------------------------------
+        # SKILL MATCH SCORE
+        # -------------------------------------------------
+
+        required_skills = ROLE_SKILLS.get(
+            profile["target_role"],
+            []
+        )
+
+        if required_skills:
+
+            skill_percentage = round(
+                len(matched_skills)
+                / len(required_skills)
+                * 100
+            )
+
+            st.metric(
+                "Skill Match",
+                f"{skill_percentage}%"
+            )
+
+
+        st.divider()
+
+
+        # -------------------------------------------------
+        # MATCHED SKILLS
+        # -------------------------------------------------
+
+        st.subheader("🟢 Skills You Have")
+
+        if matched_skills:
+
+            for skill in matched_skills:
+
+                st.success(
+                    f"✓ {skill}"
+                )
+
+        else:
+
+            st.info(
+                "No matching skills found yet."
+            )
+
+
+        # -------------------------------------------------
+        # MISSING SKILLS
+        # -------------------------------------------------
+
+        st.subheader("🔴 Skill Gaps")
+
+        if missing_skills:
+
+            for skill in missing_skills:
+
+                st.error(
+                    f"✗ {skill}"
+                )
+
+        else:
+
+            st.success(
+                "🔥 You have all the core skills "
+                "defined for this role!"
+            )
 
 
 # =========================================================
